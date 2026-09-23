@@ -1,0 +1,63 @@
+# mcl-whiteboard: how to run this service.
+#
+# Runnable as-is. It carries what the SERVICE knows about itself: its image,
+# its ports, the environment variables its own code reads, and its volumes.
+#
+#   MCL_IMAGE_TAG=<X.Y.Z> \
+#     MCL_REALM_KEY=<hex of the io.macula realm's public signing key> \
+#     MACULA_STATION_SEEDS=station.example:4433 \
+#     MACULA_STATION_NODE_IDS=<64-hex node id of that station> \
+#     RELEASE_COOKIE=<this box's own cookie> \
+#     SECRET_KEY_BASE=<64+ random bytes> \
+#     docker compose -p mcl-whiteboard -f deploy/docker-compose.yml up -d
+#
+# PLACEMENT (which box, which station, which realm key, which secret file)
+# lives in macula-io/macula-fleet, not here.
+
+services:
+  mcl-whiteboard:
+    # A pinned version, never :latest: this repository does not publish one.
+    image: ghcr.io/macula-services/mcl-whiteboard:${MCL_IMAGE_TAG:?set MCL_IMAGE_TAG to a released version}
+    container_name: mcl-whiteboard
+    restart: unless-stopped
+    # HOST NETWORKING IS NOT LAZINESS. macula stations are reachable over IPv6
+    # only, and a default bridge has no IPv6, so a bridged container connects
+    # to nothing while looking fine. Host networking also means a port already
+    # bound on this box fails SILENTLY: pick MCL_HEALTH_PORT and MCL_HTTP_PORT
+    # per box.
+    network_mode: host
+    volumes:
+      # The board store: every board's event history. Losing it loses the
+      # boards this box hosts.
+      - mcl_whiteboard_data:/var/lib/mcl-whiteboard
+      # ⚠ THE SERVICE'S IDENTITY LIVES HERE (identity.key). The realm's
+      # delegation is bound to the node id that key proves; a fresh volume
+      # is a new node id and a new admission.
+      - mcl_whiteboard_secrets:/etc/mcl/secrets
+    environment:
+      # The realm NAME. The pool's realm tag is derived from it
+      # (sha256), so topics and pool can never name different realms.
+      - MCL_REALM_NAME=${MCL_REALM_NAME:-io.macula}
+      # The trust anchor: the realm's public signing key, hex. Without it
+      # mcl_om refuses to start a pool, because a pool with no realm key
+      # resolves nothing org-namespaced while looking healthy. Public
+      # material, so it belongs here and not in the secrets volume.
+      - MCL_REALM_KEY=${MCL_REALM_KEY:?set MCL_REALM_KEY to the hex-encoded public realm signing key}
+      # Every dial is PINNED: each seed host pairs with its station's node id.
+      - MACULA_STATION_SEEDS=${MACULA_STATION_SEEDS:?set MACULA_STATION_SEEDS to "host[:port][,host[:port]...]"}
+      - MACULA_STATION_NODE_IDS=${MACULA_STATION_NODE_IDS:?set MACULA_STATION_NODE_IDS to the matching 64-hex node ids}
+      # Informational labels the realm operator sees on this service's
+      # provider-authorization row.
+      - MCL_SERVICE_NAME=${MCL_SERVICE_NAME:-mcl-whiteboard}
+      - MCL_BOX=${MCL_BOX:-}
+      - MCL_HEALTH_PORT=${MCL_HEALTH_PORT:-8491}
+      - MCL_HTTP_PORT=${MCL_HTTP_PORT:-4000}
+      # Erlang distribution is loopback-only; the cookie is this box's own
+      # (the release refuses to start without one).
+      - RELEASE_COOKIE=${RELEASE_COOKIE:?set RELEASE_COOKIE to this box's own cookie}
+      # Signs the LiveView socket. Not optional in a deployment.
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:?set SECRET_KEY_BASE to 64+ random bytes}
+
+volumes:
+  mcl_whiteboard_data:
+  mcl_whiteboard_secrets:

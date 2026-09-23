@@ -1,0 +1,199 @@
+name: ci
+
+# The tests gate the image. A push to main or a v* tag builds and pushes the
+# image only after the test job passed, and only after the built release was
+# checked against the dependency resolve the tests ran on. Pull requests run
+# the tests only.
+#
+#   push to main : ghcr.io/macula-services/mcl-whiteboard:main and :<sha>
+#   push of v*   : ghcr.io/macula-services/mcl-whiteboard:<X.Y.Z>
+#
+# NO :latest. Boxes run a PINNED image (digest or semver) from macula-fleet and
+# roll it through the reconciler, canary first; nothing here moves a box.
+#
+# PATH FILTERS. A docs-only change must not rebuild or re-push an image. Keep
+# this list to things that cannot change what the image contains.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push cancels an older run, image build included, so an older
+# commit's image never lands after a newer one's.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: gates (OTP 28.4.3 / Elixir 1.18.4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    # THE TOOLCHAIN IS THE IMAGE, and the same image by digest is the
+    # Containerfile's builder, so the gates run on exactly the toolchain the
+    # release ships with. macula-io/macula-ci-images asserts at build time that
+    # its OpenSSL serves ML-DSA; the first step checks it again here.
+    container:
+      image: ghcr.io/macula-io/macula-ci-pq:ex118-20260923-1444@sha256:d61833350b8ad6e6e1aef22e833e323d0950bdc4fed33ddf7df321d2df9e1f32
+
+    env:
+      MIX_ENV: test
+      MACULA_FORCE_SOURCE_BUILD: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify the toolchain
+        run: |
+          erl -noshell -eval 'io:format("OTP ~s~n",[erlang:system_info(otp_release)]),halt().'
+          elixir --version | tail -1
+          erl -noshell -eval '
+            case lists:member(mldsa87, crypto:supports(public_keys)) of
+                true  -> io:format("mldsa87 supported~n"), halt(0);
+                false -> io:format("mldsa87 MISSING~n"), halt(1)
+            end.'
+
+      # rocksdb (barrel_docdb's store, via mcl_om) links these; the
+      # Containerfile's builder installs the same list.
+      - name: Install system libraries
+        run: apt-get update -y && apt-get install -y --no-install-recommends libsnappy-dev libzstd-dev liblz4-dev
+
+      - name: Cache deps and _build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          # Keyed on mix.exs: this org does not commit lock files. The
+          # toolchain is in the key, so a _build from another OTP never returns.
+          key: ${{ runner.os }}-ex1.18.4-otp28.4.3-mix-${{ hashFiles('**/mix.exs') }}
+          restore-keys: |
+            ${{ runner.os }}-ex1.18.4-otp28.4.3-mix-
+
+      - name: Get deps
+        run: mix deps.get
+
+      # SHIPPED == TESTED. The resolve above is the only record of what these
+      # gates ran on; the image job builds from it and asserts the release
+      # matches it before anything is pushed.
+      - name: Hand the tested resolve to the image job
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-mix-lock
+          path: mix.lock
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Format
+        run: mix format --check-formatted
+
+      - name: Compile
+        run: mix compile --warnings-as-errors
+
+      - name: Credo
+        run: mix credo
+
+      - name: Test
+        run: mix test
+
+      - name: Cache Dialyzer PLTs
+        uses: actions/cache@v4
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-plt-otp28.4.3-ex1.18.4-${{ hashFiles('**/mix.exs') }}
+          restore-keys: |
+            ${{ runner.os }}-plt-otp28.4.3-ex1.18.4-
+
+      - name: Dialyzer
+        run: mix dialyzer
+
+  image:
+    name: image (amd64)
+    needs: test
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/macula-services/mcl-whiteboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Take the resolve the tests ran on
+        uses: actions/download-artifact@v4
+        with:
+          name: tested-mix-lock
+          path: .
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=,format=long,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          flavor: |
+            latest=false
+
+      # Built and LOADED first, not pushed: the check below runs against this
+      # exact image, and only a passing image reaches ghcr.
+      - name: Build (not pushed yet)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: mcl-whiteboard:tested-${{ github.sha }}
+          cache-from: type=gha
+          provenance: false
+          build-args: |
+            CACHE_BUST=${{ github.sha }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Assert the release is the tested resolve
+        run: ./scripts/assert_release_matches_lock.sh mcl-whiteboard:tested-${{ github.sha }} mix.lock
+
+      - name: Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          build-args: |
+            CACHE_BUST=${{ github.sha }}
+            GIT_SHA=${{ github.sha }}

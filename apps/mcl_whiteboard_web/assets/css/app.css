@@ -1,0 +1,846 @@
+/* mcl-whiteboard -- a chalkboard, not a SaaS dashboard. Slate you write
+   on, chalk-white ink, one warm amber accent for "this is live." The host
+   status readout is deliberate: most whiteboard tools hide their server,
+   this one has none to hide, so it says so. */
+
+:root {
+  --slate: #262a27;
+  --slate-deep: #1b1e1c;
+  --slate-line: rgba(242, 239, 230, 0.1);
+  --chalk: #f2efe6;
+  --chalk-dim: rgba(242, 239, 230, 0.5);
+  --amber: #d89b4a;
+  --amber-soft: rgba(216, 155, 74, 0.16);
+  --sage: #7fb0a0;
+  --sage-soft: rgba(127, 176, 160, 0.16);
+  --moss: #6fb56a;
+  --moss-soft: rgba(111, 181, 106, 0.16);
+  --wait: #6b6f6c;
+  --rust: #e0785a;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--slate);
+  color: var(--chalk);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---- top bar ---- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0 1rem;
+  background: var(--slate-deep);
+  border-bottom: 1px solid var(--slate-line);
+}
+
+.brand {
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.brand:hover {
+  color: var(--amber);
+}
+
+.brand-dim {
+  color: var(--chalk-dim);
+  font-weight: 400;
+}
+
+.board-title {
+  flex: 1;
+  color: var(--chalk-dim);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-title-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.board-title-editable {
+  cursor: text;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  margin: -0.1rem -0.35rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.board-title-editable:hover {
+  background: rgba(242, 239, 230, 0.08);
+  color: var(--chalk);
+}
+
+.board-title form {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.board-title-input {
+  width: 100%;
+  max-width: 20rem;
+  background: var(--slate-deep);
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  color: var(--chalk);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.board-title-error {
+  margin: 0.25rem 0 0;
+  color: var(--rust);
+  font-size: 0.75rem;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--chalk-dim);
+  white-space: nowrap;
+}
+
+.status-sep {
+  opacity: 0.5;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wait);
+  flex-shrink: 0;
+}
+
+.dot-live {
+  background: var(--amber);
+  --pulse-color: var(--amber-soft);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+/* Hosted elsewhere but drawable -- a stroke here relays to the real
+   host instead of dispatching locally. Deliberately a different color
+   from dot-live (amber = "this is the one true server"), not just a
+   dimmer version of it -- the distinction is real, not decorative. */
+.dot-relay {
+  background: var(--sage);
+  --pulse-color: var(--sage-soft);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--pulse-color);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot-live,
+  .dot-relay {
+    animation: none;
+  }
+}
+
+/* ---- body layout (side pane + canvas) ---- */
+
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.side-pane {
+  position: relative;
+  width: 184px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0.9rem;
+  background: var(--slate-deep);
+  border-right: 1px solid var(--slate-line);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.15s ease;
+}
+
+.side-section-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chalk-dim);
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+  white-space: nowrap;
+}
+
+/* ---- collapse ---- */
+
+.collapse-toggle {
+  position: absolute;
+  top: 0.7rem;
+  right: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--slate-line);
+  background: var(--slate-deep);
+  color: var(--chalk-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.collapse-toggle:hover {
+  color: var(--chalk);
+  border-color: var(--amber);
+}
+
+.collapse-toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.side-pane.collapsed {
+  width: 52px;
+}
+
+.side-pane.collapsed .collapse-toggle svg {
+  transform: rotate(180deg);
+}
+
+.side-pane.collapsed .side-section-heading,
+.side-pane.collapsed .tool-row-label,
+.side-pane.collapsed .sticky-row-label,
+.side-pane.collapsed .swatches {
+  display: none;
+}
+
+.side-pane.collapsed .tool-row,
+.side-pane.collapsed .sticky-row {
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+/* ---- canvas ---- */
+
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: var(--slate);
+  background-image: radial-gradient(circle at 1px 1px, var(--slate-line) 1px, transparent 0);
+  background-size: 28px 28px;
+  cursor: crosshair;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cursors-layer {
+  overflow: hidden;
+}
+
+.cursor-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(var(--cx), var(--cy));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.cursor-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--peer-color);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.cursor-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--peer-color);
+  color: var(--slate-deep);
+  white-space: nowrap;
+}
+
+/* The old position's marker, left behind on a jump and faded out --
+   never moved itself, only ever fading in place. See board_canvas_hook.js's
+   updateCursor for why this reads as motion without a continuous glide
+   (deliberate: a live cursor only reports a SETTLED position, debounced
+   on the sending side, so nothing here should imply it knows the path
+   the real pointer took to get there). */
+.cursor-ghost {
+  opacity: 0.55;
+  transition:
+    opacity 550ms ease-out,
+    transform 550ms ease-out;
+}
+
+.cursor-ghost-fade {
+  opacity: 0;
+  transform: translate(var(--cx), var(--cy)) scale(0.5);
+}
+
+/* Deliberately OUTSIDE .shapes-layer/the canvas transform -- this reads
+   the camera, it doesn't live inside it. Click resets pan+zoom to
+   identity (board_canvas_hook.js's resetCamera). */
+.zoom-indicator {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--slate-line);
+  background: var(--slate-deep);
+  color: var(--chalk-dim);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.zoom-indicator:hover {
+  border-color: var(--amber);
+  color: var(--chalk);
+}
+
+/* Same floating-control family as .zoom-indicator (a canvas-viewport
+   toggle, not a tool or a color, so it doesn't belong in the side-pane
+   sections), positioned just to its left. Active state reuses
+   .tool-row-active's own amber convention. */
+.snap-toggle {
+  position: absolute;
+  right: 4.75rem;
+  bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--slate-line);
+  background: var(--slate-deep);
+  color: var(--chalk-dim);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.snap-toggle:hover {
+  border-color: var(--amber);
+  color: var(--chalk);
+}
+
+.snap-toggle-active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--slate-deep);
+}
+
+.snap-toggle-active:hover {
+  color: var(--slate-deep);
+}
+
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--chalk-dim);
+  font-size: 1rem;
+  font-style: italic;
+}
+
+/* ---- tools (side pane) ---- */
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.9rem;
+}
+
+.tool-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--chalk-dim);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tool-row:hover {
+  color: var(--chalk);
+  background: rgba(242, 239, 230, 0.06);
+}
+
+.tool-row-active {
+  color: var(--slate-deep);
+  background: var(--amber);
+}
+
+.tool-row-active:hover {
+  color: var(--slate-deep);
+  background: var(--amber);
+}
+
+.tool-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tool-row-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--slate-line);
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--sw);
+  box-shadow: 0 0 0 2px var(--slate-deep), 0 0 0 3px transparent;
+  transition: box-shadow 0.15s ease;
+}
+
+.swatch:hover {
+  box-shadow: 0 0 0 2px var(--slate-deep), 0 0 0 3px var(--chalk-dim);
+}
+
+.swatch-active {
+  box-shadow: 0 0 0 2px var(--slate-deep), 0 0 0 3px var(--amber);
+}
+
+/* ---- sticky notes (side pane) ---- */
+
+.sticky-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sticky-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--chalk-dim);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sticky-row:hover {
+  color: var(--chalk);
+  background: rgba(242, 239, 230, 0.06);
+}
+
+.sticky-row-active {
+  color: var(--chalk);
+  background: rgba(242, 239, 230, 0.1);
+}
+
+.sticky-row-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--sw);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.sticky-row-active .sticky-row-icon {
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
+.sticky-row-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- placed shapes: stickies + text labels (DOM, not canvas) ---- */
+
+.shapes-layer {
+  overflow: hidden;
+  /* transform (translate+scale, the camera) is set inline from JS on
+     every pan/zoom -- board_canvas_hook.js's applyCamera. transform-origin
+     MUST be 0 0 (not the CSS default 50% 50%) to match the canvas
+     layers' own ctx.translate/ctx.scale, which is always anchored at
+     the canvas's own (0,0) -- see withCamera's own comment. Every
+     child (.shape-sticky/.shape-text/.shape-ghost) keeps positioning
+     itself via its own --sx/--sy translate in WORLD units, completely
+     unaware of the camera; this one transform on the shared parent is
+     the entire pan/zoom implementation for this layer. */
+  transform-origin: 0 0;
+}
+
+.shape-sticky,
+.shape-text {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(var(--sx), var(--sy));
+  /* Click-through by default so the pen/text/sticky tools can act on the
+     canvas underneath even where a shape already sits -- only the select
+     tool needs these to actually catch clicks. See board_canvas_hook.js's
+     setTool for the toggle. A pending (not-yet-confirmed) shape being
+     typed into is the one exception, forced back on below. */
+  pointer-events: none;
+}
+
+.shapes-layer.interactive .shape-sticky,
+.shapes-layer.interactive .shape-text {
+  pointer-events: auto;
+}
+
+.shape-pending {
+  pointer-events: auto;
+}
+
+/* A*-series ratio (ISO 216, width:height = 1:sqrt(2)), landscape --
+   170x120 is 1.417:1 against sqrt(2)'s 1.414:1, close enough that no
+   one will measure it. Fixed height (not min-height) to actually hold
+   the ratio; text that overflows scrolls within the note instead of
+   growing it taller and drifting off-ratio. */
+.shape-sticky {
+  width: 170px;
+  height: 120px;
+  padding: 0.6rem 0.65rem;
+  border-radius: 3px;
+  background: var(--shape-color);
+  color: var(--slate-deep);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.35);
+  cursor: default;
+}
+
+/* Live preview while the sticky tool is armed but nothing has been
+   clicked yet -- follows the pointer so a placement's size/color is
+   never a surprise. Never intercepts pointer events itself (it would
+   sit on top of everything otherwise) and never participates in
+   selection/hit-testing -- purely decorative, replaced by the real
+   pending textarea on click. */
+.shape-ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(var(--sx), var(--sy));
+  pointer-events: none;
+  opacity: 0.4;
+  width: 170px;
+  height: 120px;
+  border-radius: 3px;
+  background: var(--shape-color);
+  border: 1px dashed rgba(0, 0, 0, 0.35);
+}
+
+.shape-text {
+  color: var(--shape-color);
+  font-size: 1rem;
+  white-space: pre-wrap;
+  cursor: default;
+  min-width: 1.5rem;
+  min-height: 1.4rem;
+}
+
+.shape-selected {
+  outline: 2px dashed var(--amber);
+  outline-offset: 3px;
+}
+
+.shape-editing {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  cursor: text;
+}
+
+/* ---- boards picker ---- */
+
+.boards-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem 1.5rem;
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.new-board-form {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 2rem;
+}
+
+.new-board-form input {
+  flex: 1;
+  background: var(--slate-deep);
+  border: 1px solid var(--slate-line);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  color: var(--chalk);
+  font-size: 0.9rem;
+}
+
+.new-board-form input:focus-visible {
+  border-color: var(--amber);
+}
+
+.new-board-form button {
+  background: var(--amber);
+  color: var(--slate-deep);
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.new-board-form button:hover {
+  background: #e3ab63;
+}
+
+.boards-empty {
+  color: var(--chalk-dim);
+  font-style: italic;
+  padding: 1rem 0;
+}
+
+.boards-section-heading {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chalk-dim);
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--slate-line);
+}
+
+.board-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* .board-card itself is the flex row when it carries a sibling action
+   button (Archive/Unarchive) -- the anchor stays a self-contained card
+   (flex: 1) so archived-board rows and remote/pending rows, which have
+   no button, don't need their own separate layout rule. */
+.board-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.board-card a {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: var(--slate-deep);
+  border: 1px solid var(--slate-line);
+  text-decoration: none;
+  color: var(--chalk);
+  transition: border-color 0.15s ease;
+}
+
+.board-card a:hover {
+  border-color: var(--amber);
+}
+
+.board-card-archived a {
+  opacity: 0.65;
+}
+
+.board-card-action {
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--chalk-dim);
+  border: 1px solid var(--slate-line);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.board-card-action:hover {
+  border-color: var(--amber);
+  color: var(--chalk);
+}
+
+.board-card-pending {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: var(--slate-deep);
+  border: 1px dashed var(--slate-line);
+  color: var(--chalk-dim);
+}
+
+.board-card-badge {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--slate-line);
+}
+
+.board-card-badge-hosted {
+  color: var(--amber);
+  border-color: var(--amber-soft);
+}
+
+/* Deliberately a different green from --sage (dot-relay's color): this
+   badge answers "is someone here right now" -- human presence -- not
+   "can I draw here" (relay). Different question, different color, so
+   the two are never mistaken for the same signal at a glance. */
+.board-card-badge-presence {
+  color: var(--moss);
+  border-color: var(--moss);
+  background: var(--moss-soft);
+  font-weight: 600;
+}
+
+.board-card-title {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-card-meta {
+  flex-shrink: 0;
+  color: var(--chalk-dim);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---- responsive ---- */
+
+@media (max-width: 520px) {
+  .board-title {
+    display: none;
+  }
+
+  .status-text .mono {
+    display: none;
+  }
+}

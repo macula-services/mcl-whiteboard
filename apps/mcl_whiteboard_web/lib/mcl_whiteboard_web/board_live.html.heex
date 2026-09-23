@@ -1,0 +1,193 @@
+<div class="app">
+  <header class="topbar">
+    <a href="/boards" class="brand" title="All boards hosted here">
+      mcl<span class="brand-dim">-whiteboard</span>
+    </a>
+    <div class="board-title">
+      <%= if @editing_title? do %>
+        <form phx-submit="rename" phx-window-keydown="cancel_rename" phx-key="Escape">
+          <input
+            type="text"
+            name="title"
+            value={@board_title}
+            maxlength="120"
+            autocomplete="off"
+            autofocus
+            class="board-title-input"
+            aria-describedby="board-title-error"
+          />
+          <p :if={@rename_error} id="board-title-error" class="board-title-error" role="alert">
+            {@rename_error}
+          </p>
+        </form>
+      <% else %>
+        <span
+          class={if @can_rename?, do: "board-title-text board-title-editable", else: "board-title-text"}
+          phx-click={if @can_rename?, do: "edit_title"}
+          title={if @can_rename?, do: "Click to rename"}
+        >
+          {@board_title}
+        </span>
+      <% end %>
+    </div>
+    <div class="status" title={@status_hint}>
+      <span class={"dot #{@status_dot}"}></span>
+      <span class="status-text">
+        <span class="mono">{@host_label}</span>
+        <span class="status-sep">·</span>
+        {@stroke_count} {if @stroke_count == 1, do: "stroke", else: "strokes"}
+      </span>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="side-pane" id="side-pane">
+      <button type="button" class="collapse-toggle" id="side-pane-collapse" title="Collapse toolbox">
+        <svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 4l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <div class="side-section">
+        <div class="side-section-heading">Tools</div>
+        <div class="tool-list">
+          <button type="button" class="tool-row" title="Select" data-tool="select">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" stroke="none">
+                <path d="M4 3l11 6.5-4.6 1.1L13 15l-2 1-2.4-4.6L5.5 14z" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Select</span>
+          </button>
+          <button type="button" class="tool-row tool-row-active" title="Pen" data-tool="pen">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M3 17l1-4L13 4l3 3-9 9-4 1z" stroke-linejoin="round" stroke-linecap="round" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Pen</span>
+          </button>
+          <button type="button" class="tool-row" title="Text" data-tool="text">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M4 5h12M10 5v10" stroke-linecap="round" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Text</span>
+          </button>
+          <button type="button" class="tool-row" title="Rectangle" data-tool="rectangle">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="3" y="5" width="14" height="10" rx="1" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Rectangle</span>
+          </button>
+          <button type="button" class="tool-row" title="Ellipse" data-tool="ellipse">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <ellipse cx="10" cy="10" rx="7" ry="5" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Ellipse</span>
+          </button>
+          <button type="button" class="tool-row" title="Triangle" data-tool="triangle">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M10 4l7 12H3z" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Triangle</span>
+          </button>
+          <button type="button" class="tool-row" title="Frame (grouping container)" data-tool="frame">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.5 2">
+                <rect x="3" y="4" width="14" height="12" rx="1" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Frame</span>
+          </button>
+          <button type="button" class="tool-row" title="Arrow (snaps to shapes)" data-tool="arrow">
+            <span class="tool-row-icon">
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M4 16L16 4M16 4H9M16 4V11" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="tool-row-label">Arrow</span>
+          </button>
+        </div>
+        <div class="swatches" role="group" aria-label="Ink color">
+          <button type="button" class="swatch swatch-active" style="--sw:#f2efe6" data-color="#f2efe6" aria-label="Chalk"></button>
+          <button type="button" class="swatch" style="--sw:#d89b4a" data-color="#d89b4a" aria-label="Amber"></button>
+          <button type="button" class="swatch" style="--sw:#7fb0a0" data-color="#7fb0a0" aria-label="Sage"></button>
+          <button type="button" class="swatch" style="--sw:#c2618f" data-color="#c2618f" aria-label="Rose"></button>
+        </div>
+      </div>
+
+      <div class="side-section">
+        <div class="side-section-heading">Event Storming</div>
+        <div class="sticky-list" role="group" aria-label="Sticky note color">
+          <button type="button" class="sticky-row" data-sticky-color="#f2994a" title="Domain Event">
+            <span class="sticky-row-icon" style="--sw:#f2994a"></span>
+            <span class="sticky-row-label">Event</span>
+          </button>
+          <button type="button" class="sticky-row" data-sticky-color="#4a90d9" title="Command">
+            <span class="sticky-row-icon" style="--sw:#4a90d9"></span>
+            <span class="sticky-row-label">Command</span>
+          </button>
+          <button type="button" class="sticky-row" data-sticky-color="#f2c94c" title="Actor">
+            <span class="sticky-row-icon" style="--sw:#f2c94c"></span>
+            <span class="sticky-row-label">Actor</span>
+          </button>
+          <button type="button" class="sticky-row" data-sticky-color="#bb6bd9" title="Policy">
+            <span class="sticky-row-icon" style="--sw:#bb6bd9"></span>
+            <span class="sticky-row-label">Policy</span>
+          </button>
+          <button type="button" class="sticky-row" data-sticky-color="#6fcf97" title="Read Model">
+            <span class="sticky-row-icon" style="--sw:#6fcf97"></span>
+            <span class="sticky-row-label">Read Model</span>
+          </button>
+          <button type="button" class="sticky-row" data-sticky-color="#eb5757" title="Hotspot">
+            <span class="sticky-row-icon" style="--sw:#eb5757"></span>
+            <span class="sticky-row-label">Hotspot</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <main
+      id="board-canvas-wrap"
+      class="canvas-wrap"
+      phx-hook="BoardCanvas"
+      phx-update="ignore"
+      data-can-draw={to_string(@can_draw?)}
+    >
+      <canvas id="board-canvas-committed" class="layer"></canvas>
+      <canvas id="board-canvas-pending" class="layer"></canvas>
+      <div id="board-canvas-shapes" class="layer shapes-layer"></div>
+      <div id="board-canvas-cursors" class="layer cursors-layer"></div>
+      <div id="board-empty-state" class="empty-state">
+        <span>Draw something.</span>
+      </div>
+      <button
+        type="button"
+        id="board-snap-toggle"
+        class="snap-toggle"
+        title="Snap to grid"
+      >
+        <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M4 4h4M4 4v4M12 4h4M16 4v4M4 12v4M4 16h4M16 12v4M12 16h4" stroke-linecap="round" />
+        </svg>
+        Snap
+      </button>
+      <button
+        type="button"
+        id="board-zoom-indicator"
+        class="zoom-indicator"
+        title="Reset pan &amp; zoom"
+      >
+        100%
+      </button>
+    </main>
+  </div>
+</div>

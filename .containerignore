@@ -1,0 +1,6 @@
+_build
+deps
+.git
+priv/plts
+apps/*/priv/static/assets
+.gate-*.sh

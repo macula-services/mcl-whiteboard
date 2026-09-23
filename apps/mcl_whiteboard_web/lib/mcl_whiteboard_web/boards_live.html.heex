@@ -1,0 +1,147 @@
+<div class="app boards-page">
+  <header class="topbar">
+    <div class="brand">mcl<span class="brand-dim">-whiteboard</span></div>
+    <div class="board-title">Boards hosted here</div>
+  </header>
+
+  <main class="boards-main">
+    <form phx-submit="create" class="new-board-form">
+      <input
+        type="text"
+        name="title"
+        placeholder="New board title"
+        autocomplete="off"
+        maxlength="120"
+      />
+      <button type="submit">+ New board</button>
+    </form>
+
+    <%= if @boards == [] do %>
+      <div class="boards-empty">
+        <span>No boards hosted here yet. Start one above.</span>
+      </div>
+    <% else %>
+      <ul class="board-list">
+        <li :for={board <- @boards} class="board-card">
+          <a href={"/board/" <> board.board_id}>
+            <span class="board-card-title">{board.title}</span>
+            <span class="board-card-meta">
+              <span class="mono">{board.owner}</span>
+              <span class="status-sep">·</span>
+              {board.stroke_count} {if board.stroke_count == 1, do: "stroke", else: "strokes"}
+              <span class="status-sep">·</span>
+              <span
+                class="board-card-badge board-card-badge-hosted"
+                title="This node hosts this board directly."
+              >
+                hosted here
+              </span>
+              <span
+                :if={Map.get(@presence_counts, board.board_id, 0) > 0}
+                class="board-card-badge board-card-badge-presence"
+                title="Someone has this board open right now."
+              >
+                {presence_label(Map.get(@presence_counts, board.board_id, 0))}
+              </span>
+            </span>
+          </a>
+          <button
+            type="button"
+            class="board-card-action"
+            phx-click="archive"
+            phx-value-board_id={board.board_id}
+            data-confirm={"Archive \"#{board.title}\"? It becomes read-only and drops off the mesh picker until unarchived."}
+            title="Archive this board -- read-only, hidden from discovery, reversible."
+          >
+            Archive
+          </button>
+        </li>
+      </ul>
+    <% end %>
+
+    <%= if @archived_boards != [] do %>
+      <h2 class="boards-section-heading">Archived</h2>
+      <ul class="board-list">
+        <li :for={board <- @archived_boards} class="board-card board-card-archived">
+          <a href={"/board/" <> board.board_id}>
+            <span class="board-card-title">{board.title}</span>
+            <span class="board-card-meta">
+              <span class="mono">{board.owner}</span>
+              <span class="status-sep">·</span>
+              {board.stroke_count} {if board.stroke_count == 1, do: "stroke", else: "strokes"}
+              <span class="status-sep">·</span>
+              <span
+                class="board-card-badge"
+                title="Read-only. Hidden from the mesh picker on other nodes."
+              >
+                archived
+              </span>
+            </span>
+          </a>
+          <button
+            type="button"
+            class="board-card-action"
+            phx-click="unarchive"
+            phx-value-board_id={board.board_id}
+            title="Unarchive this board -- reopens it for drawing and mesh discovery."
+          >
+            Unarchive
+          </button>
+        </li>
+      </ul>
+    <% end %>
+
+    <h2 class="boards-section-heading">On other nodes</h2>
+
+    <% remote_boards = remote_boards(@remote_board_facts) %>
+
+    <%= cond do %>
+      <% @remote_boards_loading? -> %>
+        <div class="boards-empty">
+          <span>Checking the mesh…</span>
+        </div>
+      <% remote_boards == [] -> %>
+        <div class="boards-empty">
+          <span>No boards found on other nodes.</span>
+        </div>
+      <% true -> %>
+        <ul class="board-list">
+          <li :for={board <- remote_boards} class="board-card">
+            <a :if={hosted?(board.status)} href={"/board/" <> board.board_id}>
+              <span class="board-card-title">{board.title}</span>
+              <span class="board-card-meta">
+                <span class="mono">{board.host}</span>
+                <span class="status-sep">·</span>
+                <span
+                  class="board-card-badge"
+                  title="Hosted elsewhere. Opens here; drawing relays to the host over the mesh."
+                >
+                  relay
+                </span>
+                <span
+                  :if={Map.get(@presence_counts, board.board_id, 0) > 0}
+                  class="board-card-badge board-card-badge-presence"
+                  title="Someone has this board open right now."
+                >
+                  {presence_label(Map.get(@presence_counts, board.board_id, 0))}
+                </span>
+              </span>
+            </a>
+            <div :if={!hosted?(board.status)} class="board-card-pending">
+              <span class="board-card-title">{board.title}</span>
+              <span class="board-card-meta">
+                <span class="mono">{board.host}</span>
+                <span class="status-sep">·</span>
+                <span
+                  class="board-card-badge"
+                  title="Created but not yet open for editing anywhere."
+                >
+                  initiated
+                </span>
+              </span>
+            </div>
+          </li>
+        </ul>
+    <% end %>
+  </main>
+</div>

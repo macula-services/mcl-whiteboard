@@ -1,0 +1,144 @@
+defmodule GuideBoardLifecycle.BoardAggregate do
+  # The `board` aggregate: routes commands to a desk handler after checking
+  # the business rule for that command against current status. Mirrors
+  # mcl-tube's channel_aggregate.
+  @behaviour :evoq_aggregate
+
+  alias GuideBoardLifecycle.ArchiveBoard.MaybeArchiveBoard
+  alias GuideBoardLifecycle.BoardState
+  alias GuideBoardLifecycle.BoardStatus
+  alias GuideBoardLifecycle.DrawGeometry.MaybeDrawGeometry
+  alias GuideBoardLifecycle.DrawStroke.MaybeDrawStroke
+  alias GuideBoardLifecycle.HostBoard.MaybeHostBoard
+  alias GuideBoardLifecycle.InitiateBoard.MaybeInitiateBoard
+  alias GuideBoardLifecycle.LeaveBoard.MaybeLeaveBoard
+  alias GuideBoardLifecycle.MoveShape.MaybeMoveShape
+  alias GuideBoardLifecycle.PlaceSticky.MaybePlaceSticky
+  alias GuideBoardLifecycle.PlaceText.MaybePlaceText
+  alias GuideBoardLifecycle.RemoveShape.MaybeRemoveShape
+  alias GuideBoardLifecycle.RenameBoard.MaybeRenameBoard
+  alias GuideBoardLifecycle.UnarchiveBoard.MaybeUnarchiveBoard
+
+  @impl true
+  def state_module, do: BoardState
+
+  @impl true
+  def init(board_id), do: {:ok, BoardState.new(board_id)}
+
+  @impl true
+  def apply(state, event), do: BoardState.apply_event(state, event)
+
+  @impl true
+  def execute(state, %{command_type: command_type} = payload) do
+    do_execute(command_type, BoardState.status(state), payload)
+  end
+
+  defp do_execute(:initiate_board, status, payload) do
+    if :evoq_bit_flags.has_not(status, BoardStatus.initiated()) do
+      MaybeInitiateBoard.handle_from_map(payload)
+    else
+      {:error, :already_initiated}
+    end
+  end
+
+  defp do_execute(:archive_board, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.initiated()) -> {:error, :not_initiated}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :already_archived}
+      true -> MaybeArchiveBoard.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:unarchive_board, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.initiated()) -> {:error, :not_initiated}
+      :evoq_bit_flags.has_not(status, BoardStatus.archived()) -> {:error, :not_archived}
+      true -> MaybeUnarchiveBoard.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:host_board, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.initiated()) -> {:error, :not_initiated}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybeHostBoard.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:rename_board, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.initiated()) -> {:error, :not_initiated}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybeRenameBoard.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:draw_stroke, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.hosted()) -> {:error, :not_hosted}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybeDrawStroke.handle_from_map(payload)
+    end
+  end
+
+  # No archived guard, unlike the other desks -- leaving is a read-only
+  # audit fact, never a content mutation, so it stays valid even on an
+  # archived board.
+  defp do_execute(:leave_board, status, payload) do
+    if :evoq_bit_flags.has_not(status, BoardStatus.hosted()) do
+      {:error, :not_hosted}
+    else
+      MaybeLeaveBoard.handle_from_map(payload)
+    end
+  end
+
+  # Same guard shape as draw_stroke -- placing/moving/removing a shape is
+  # a content mutation, just like drawing ink, so it needs the same
+  # hosted/not-archived rule (unlike leave_board above).
+  defp do_execute(:place_sticky, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.hosted()) -> {:error, :not_hosted}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybePlaceSticky.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:place_text, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.hosted()) -> {:error, :not_hosted}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybePlaceText.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:move_shape, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.hosted()) -> {:error, :not_hosted}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybeMoveShape.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:draw_geometry, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.hosted()) -> {:error, :not_hosted}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybeDrawGeometry.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(:remove_shape, status, payload) do
+    cond do
+      :evoq_bit_flags.has_not(status, BoardStatus.hosted()) -> {:error, :not_hosted}
+      :evoq_bit_flags.has(status, BoardStatus.archived()) -> {:error, :archived}
+      true -> MaybeRemoveShape.handle_from_map(payload)
+    end
+  end
+
+  defp do_execute(_other, _status, _payload), do: {:error, :unknown_command}
+
+  # A board's id is minted (via reckon_gater_stream_id, in
+  # InitiateBoardV1.new/1) at the same moment it becomes a stream id -- no
+  # separate derivation needed.
+  def stream_id(board_id), do: board_id
+end

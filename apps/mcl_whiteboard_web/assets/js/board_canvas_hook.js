@@ -1,0 +1,1797 @@
+// Dumb renderer: draws whatever shapes the server pushes, and reports
+// finished shapes back up. Holds no business logic (whether drawing is
+// currently allowed is decided server-side and read once from
+// data-can-draw -- see BoardLive's own comment on this).
+//
+// Two rendering substrates, chosen per shape kind: strokes and basic
+// shapes (rectangle/ellipse/triangle) stay on <canvas> (cheap, and
+// selection there is a plain bounding-box/segment-distance hit test),
+// stickies and text labels are plain DOM elements in the "shapes" layer
+// (cheap for selection/drag/editing -- a sticky/text label has exactly
+// one anchor point, a native DOM element gives free click targets and
+// text layout). "pending" is a pure local scratchpad for whatever's
+// currently under the pointer (an in-progress stroke or shape drag, a
+// selection outline), cleared the moment the server confirms or the
+// gesture ends.
+function smoothPath(ctx, points) {
+  if (points.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const midX = (p1.x + p2.x) / 2;
+    const midY = (p1.y + p2.y) / 2;
+    ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
+  ctx.stroke();
+}
+
+function drawStroke(ctx, stroke) {
+  ctx.save();
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.width;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (stroke.points.length === 1) {
+    ctx.beginPath();
+    ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.width / 2, 0, Math.PI * 2);
+    ctx.fillStyle = stroke.color;
+    ctx.fill();
+  } else {
+    smoothPath(ctx, stroke.points);
+  }
+
+  ctx.restore();
+}
+
+// Basic shapes are always outlined (not filled) in the caller's ink
+// color, and always defined by the two opposite corners of a bounding
+// box -- the same click-drag convention every other drawing tool uses
+// for these three, and the shape a rename `shape.kind` uses to derive
+// each corner-based reconstruction (see GEOMETRY_KINDS below).
+function geometryBox(points) {
+  const [a, b] = points;
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    w: Math.abs(b.x - a.x),
+    h: Math.abs(b.y - a.y),
+  };
+}
+
+function drawRectangle(ctx, shape) {
+  const { x, y, w, h } = geometryBox(shape.points);
+  ctx.save();
+  ctx.strokeStyle = shape.color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
+}
+
+function drawEllipse(ctx, shape) {
+  const { x, y, w, h } = geometryBox(shape.points);
+  ctx.save();
+  ctx.strokeStyle = shape.color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawTriangle(ctx, shape) {
+  const { x, y, w, h } = geometryBox(shape.points);
+  ctx.save();
+  ctx.strokeStyle = shape.color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + w / 2, y);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Deliberately NOT drawn in the caller's ink color (unlike rectangle/
+// ellipse/triangle) -- a frame is structural background, not content,
+// so it stays a fixed neutral regardless of which ink swatch happens to
+// be selected. Dashed, so it reads as "container" rather than "shape"
+// at a glance even before you notice anything's inside it. The label is
+// fixed text for now, not user-editable -- renaming is a natural
+// follow-on (matching the board-title click-to-rename affordance), not
+// in this first cut.
+function drawFrame(ctx, shape) {
+  const { x, y, w, h } = geometryBox(shape.points);
+  ctx.save();
+  ctx.strokeStyle = "rgba(242, 239, 230, 0.35)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(242, 239, 230, 0.55)";
+  // Canvas ctx.font needs a resolved font stack, not a CSS var()
+  // reference -- kept in sync with app.css's own --mono by hand.
+  ctx.font = '12px ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace';
+  ctx.fillText(shape.text || "Frame", x + 6, y - 8 < 0 ? y + 14 : y - 8);
+  ctx.restore();
+}
+
+// A line + arrowhead between shape.points[0] and [1]. Purely a dumb
+// renderer, like every other drawXxx function here -- shape.points is
+// expected to already be the CURRENT, resolved endpoints by the time
+// this runs (see the hook's own resolvedPoints/resolveArrowEndpoints,
+// which handle turning from_shape_id/to_shape_id into live coordinates
+// before ever calling drawShape). This function has no idea an arrow
+// can even reference another shape.
+function drawArrow(ctx, shape) {
+  const [from, to] = shape.points;
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  const headLen = 12;
+
+  ctx.save();
+  ctx.strokeStyle = shape.color;
+  ctx.fillStyle = shape.color;
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(to.x, to.y);
+  ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Single dispatch point for every canvas-rendered shape kind -- used by
+// the confirmed-shape layer, the live drag-to-size preview, and the
+// live selected-shape-move preview, so all three always agree on what
+// each kind looks like.
+function drawShape(ctx, shape) {
+  switch (shape.kind) {
+    case "rectangle":
+      return drawRectangle(ctx, shape);
+    case "ellipse":
+      return drawEllipse(ctx, shape);
+    case "triangle":
+      return drawTriangle(ctx, shape);
+    case "frame":
+      return drawFrame(ctx, shape);
+    case "arrow":
+      return drawArrow(ctx, shape);
+    default:
+      return drawStroke(ctx, shape);
+  }
+}
+
+// The point on box's perimeter along the ray from its center toward
+// towardPoint -- how an arrow endpoint "snaps to the edge" of a
+// connected shape instead of overlapping its interior. towardPoint
+// equal to the center itself (a degenerate zero-size box, or two
+// shapes stacked exactly on top of each other) falls back to the
+// center rather than dividing by zero.
+function boxCenter(box) {
+  return { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 };
+}
+
+function clipToBox(box, towardPoint) {
+  const center = boxCenter(box);
+  const dx = towardPoint.x - center.x;
+  const dy = towardPoint.y - center.y;
+  if (dx === 0 && dy === 0) return center;
+
+  const halfW = Math.max((box.maxX - box.minX) / 2, 0.01);
+  const halfH = Math.max((box.maxY - box.minY) / 2, 0.01);
+  const tX = dx === 0 ? Infinity : halfW / Math.abs(dx);
+  const tY = dy === 0 ? Infinity : halfH / Math.abs(dy);
+  const t = Math.min(tX, tY, 1);
+
+  return { x: center.x + dx * t, y: center.y + dy * t };
+}
+
+function boundingBox(points) {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+// The four resizable corners of a shape's bounding box, each paired with
+// its diagonally opposite corner -- the one that stays anchored while
+// THIS corner is dragged, since move_shape's own convention (two opposite
+// points) makes the anchor the other point of the pair.
+function resizeHandlePoints(shape) {
+  const box = boundingBox(shape.points);
+  return [
+    { corner: { x: box.minX, y: box.minY }, opposite: { x: box.maxX, y: box.maxY } },
+    { corner: { x: box.maxX, y: box.minY }, opposite: { x: box.minX, y: box.maxY } },
+    { corner: { x: box.minX, y: box.maxY }, opposite: { x: box.maxX, y: box.minY } },
+    { corner: { x: box.maxX, y: box.maxY }, opposite: { x: box.minX, y: box.minY } },
+  ];
+}
+
+function pointInBoundingBox(point, points, padding) {
+  const box = boundingBox(points);
+  return (
+    point.x >= box.minX - padding &&
+    point.x <= box.maxX + padding &&
+    point.y >= box.minY - padding &&
+    point.y <= box.maxY + padding
+  );
+}
+
+// Shortest distance from point p to the segment a-b -- used to hit-test
+// a click against a freehand stroke's individual line segments, since a
+// stroke has no single rectangle the way a basic shape does.
+function distanceToSegment(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSq));
+  const closestX = a.x + t * dx;
+  const closestY = a.y + t * dy;
+  return Math.hypot(p.x - closestX, p.y - closestY);
+}
+
+const HIT_THRESHOLD_PX = 10;
+const GEOMETRY_KINDS = ["rectangle", "ellipse", "triangle", "frame"];
+// Same four kinds as GEOMETRY_KINDS -- every one of them is already
+// "two opposite corner points", the exact shape resize needs. A stroke
+// has no single meaningful resize (its points are a whole freehand
+// path, not a box), so it's deliberately excluded by staying outside
+// this list rather than needing its own separate check everywhere.
+const RESIZE_HANDLE_PX = 8;
+// Below this, a click-drag reads as an accidental click, not real intent
+// to draw a zero-size shape -- mirrors how draw_stroke's own single-point
+// "dot" case is the one deliberate exception, not the default.
+const MIN_GEOMETRY_SIZE_PX = 4;
+// How far a pasted shape is offset from what was copied, so paste never
+// lands exactly on top of the original with no visible sign anything
+// happened.
+const PASTE_OFFSET_PX = 24;
+
+// Matches .canvas-wrap's own dot-grid background-size exactly -- when
+// snap is on, shapes land ON the visible dots, not at some unrelated
+// spacing the user has to take on faith.
+const SNAP_GRID_PX = 28;
+
+// Distinct per-tool cursors -- a user reported switching tools gave no
+// visible feedback at all, and they were right: every non-select tool
+// fell back to the same bare "crosshair". Sticky does NOT share "text"
+// with the plain Text tool despite both opening a typeable textarea on
+// click: sticky already has its own dedicated visual (the shape-ghost
+// preview following the pointer, see updateGhost/CSS .shape-ghost), so
+// an I-beam on top of that ghost was two conflicting placement cues at
+// once -- reported live as "when I click a sticky note tool I get a
+// text cursor". Text has no ghost preview, so its I-beam stays the only
+// cue and is the right one for it.
+const CURSOR_BY_TOOL = {
+  pen: "crosshair",
+  text: "text",
+  sticky: "crosshair",
+  select: "default",
+  rectangle: "crosshair",
+  ellipse: "crosshair",
+  triangle: "crosshair",
+  frame: "crosshair",
+  arrow: "crosshair",
+};
+
+// How long a peer's pointer must sit still before this browser tells the
+// server where it settled -- see TrackPresence.Roster's own header for
+// why this is a debounce-on-stop, not a continuous stream: a fast-moving
+// cursor produces ZERO mesh traffic, only its resting points do.
+const CURSOR_SETTLE_MS = 400;
+
+// Camera: every stored/transmitted point (strokes, shapes, cursors) is
+// in WORLD space, independent of any one viewer's window size or zoom
+// level -- the camera (pan offset + zoom factor) is purely local,
+// client-side, never sent anywhere. Before this, a point was literally
+// "pixels from the canvas's top-left at draw time" (camera was
+// implicitly identity), so old boards need no migration: their stored
+// coordinates are indistinguishable from world coordinates recorded
+// under an identity camera.
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 4;
+// Tuned so one normal mouse-wheel notch (~100 raw deltaY) or a light
+// trackpad pinch feels like a deliberate, moderate step -- not a raw
+// 1:1 mapping, which would make zoom hypersensitive on precision
+// trackpads that report large deltaY values for small gestures.
+const ZOOM_WHEEL_SENSITIVITY = 0.0015;
+
+export const BoardCanvas = {
+  mounted() {
+    this.committed = this.el.querySelector("#board-canvas-committed");
+    this.pending = this.el.querySelector("#board-canvas-pending");
+    this.shapesLayer = this.el.querySelector("#board-canvas-shapes");
+    this.cursorsLayer = this.el.querySelector("#board-canvas-cursors");
+    this.emptyState = document.getElementById("board-empty-state");
+    this.zoomIndicator = document.getElementById("board-zoom-indicator");
+    this.snapToggle = document.getElementById("board-snap-toggle");
+    this.canDraw = this.el.dataset.canDraw === "true";
+
+    // Screen = world * zoom + {x, y}. Local to this tab, never persisted
+    // or transmitted -- resets to identity on every mount, same as any
+    // infinite-canvas tool's default. See this file's own header for why
+    // NOT resetting it silently loses nothing on old boards.
+    this.camera = { x: 0, y: 0, zoom: 1 };
+
+    // Off by default, same as the camera above: local to this tab,
+    // never persisted or transmitted, resets on every mount.
+    this.snapToGrid = false;
+
+    this.activeTool = "pen"; // "pen" | "text" | "select" | "sticky" | "rectangle" | "ellipse" | "triangle"
+    this.color = "#f2efe6";
+    this.stickyColor = "#f2994a";
+    this.width = 3;
+    this.points = [];
+    this.drawing = false;
+    this.drawingGeometry = null; // {kind, start} while a shape tool's drag is in progress
+    this.drawingArrow = null; // {fromShapeId, start} while the arrow tool's drag is in progress
+    this.ghostEl = null; // live placement preview while the sticky tool is armed
+
+    this.shapes = []; // every confirmed canvas shape (stroke/rectangle/ellipse/triangle)
+    this.domShapes = new Map(); // shape_id -> {el, kind, points, color, text} for stickies/text
+    this.selection = new Map(); // shape_id -> "canvas" | "dom" -- zero, one, or many
+    this.moving = null; // {startPoint, items: [{shapeId, kind, originalPoints}]} -- one drag, any mix of canvas/dom shapes
+    this.resizing = null; // {cancel} while a resize-handle drag is in progress
+    this.marquee = null; // {start} while a select-tool drag over empty canvas is rubber-banding
+    this.clipboard = null; // [{kind, points, color, width?, text?}, ...] -- copy/cut/paste, whole selection
+
+    this.cursors = new Map(); // peer_id -> {el, x, y}
+    this.settleTimer = null;
+
+    this.resize();
+    window.addEventListener("resize", () => this.resize());
+
+    this.wireInkSwatches();
+    this.wireToolButtons();
+    this.wireStickySwatches();
+    this.wireCollapseToggle();
+    this.wireCanvasInteraction();
+    this.wireCursorTracking();
+    this.wireKeyboardShortcuts();
+    this.wireCameraControls();
+    this.wireSnapToggle();
+
+    this.handleEvent("shapes:snapshot", ({ shapes }) => {
+      shapes.forEach((s) => this.renderShape(s));
+      this.updateEmptyState(shapes.length > 0);
+
+      // An arrow can land in this list BEFORE the shape it references
+      // (snapshot order isn't creation order), so its very first paint
+      // via renderCanvasShape may resolve against a shape that doesn't
+      // exist in this.shapes/domShapes yet and fall back to its stored
+      // (possibly stale) points. One full redraw after every shape in
+      // the batch is loaded guarantees every reference resolves against
+      // the COMPLETE picture, not whatever partial state existed
+      // mid-batch.
+      this.redrawCommitted();
+    });
+
+    this.handleEvent("shapes:append", (stroke) => {
+      this.renderShape({ ...stroke, kind: "stroke" });
+      this.updateEmptyState(true);
+    });
+
+    this.handleEvent("shape_placed", (shape) => {
+      this.renderShape(shape);
+      this.updateEmptyState(true);
+    });
+
+    this.handleEvent("shape_moved", ({ shape_id, points }) => this.applyMove(shape_id, points));
+
+    this.handleEvent("shape_removed", ({ shape_id }) => this.applyRemove(shape_id));
+
+    this.handleEvent("cursor:snapshot", ({ cursors }) => {
+      cursors.forEach((c) => this.updateCursor(c, /* instant */ true));
+    });
+
+    this.handleEvent("cursor:update", (cursor) => this.updateCursor(cursor, false));
+
+    this.handleEvent("cursor:remove", ({ peer_id }) => this.removeCursor(peer_id));
+  },
+
+  resize() {
+    [this.committed, this.pending].forEach((canvas) => {
+      const rect = this.el.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = rect.width * ratio;
+      canvas.height = rect.height * ratio;
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
+      // No setTransform here -- withCamera/clearCanvas set the full
+      // transform themselves on every call, so this canvas's own
+      // persistent transform state is never relied on between draws.
+    });
+
+    this.redrawCommitted();
+  },
+
+  // Resets to a DPR-only transform (undoing whatever any PREVIOUS draw
+  // left active) and returns the ratio, so callers can clear in
+  // CSS-pixel space before applying the camera themselves -- clearRect
+  // respects whatever transform is active when it's called, so clearing
+  // under an already-zoomed transform would only clear part of the
+  // visible canvas.
+  resetTransform(ctx) {
+    const ratio = window.devicePixelRatio || 1;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    return ratio;
+  },
+
+  applyCameraTransform(ctx) {
+    ctx.translate(this.camera.x, this.camera.y);
+    ctx.scale(this.camera.zoom, this.camera.zoom);
+  },
+
+  // Every canvas draw goes through here, drawWithCamera, or clearCanvas
+  // -- never a raw ctx.clearRect/draw pair -- so the transform is
+  // always set fresh, never assumed left over from a previous call.
+  withCamera(canvas, drawFn) {
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    const ratio = this.resetTransform(ctx);
+    ctx.clearRect(0, 0, canvas.width / ratio, canvas.height / ratio);
+    this.applyCameraTransform(ctx);
+    drawFn(ctx);
+    ctx.restore();
+  },
+
+  // Same transform as withCamera, but does NOT clear first -- for
+  // incrementally appending ONE new shape onto committed without
+  // redrawing everything already there (renderCanvasShape).
+  drawWithCamera(canvas, drawFn) {
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    this.resetTransform(ctx);
+    this.applyCameraTransform(ctx);
+    drawFn(ctx);
+    ctx.restore();
+  },
+
+  clearCanvas(canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    const ratio = this.resetTransform(ctx);
+    ctx.clearRect(0, 0, canvas.width / ratio, canvas.height / ratio);
+    ctx.restore();
+  },
+
+  // Frames always paint FIRST regardless of where they fall in
+  // this.shapes' own creation-order array -- a frame drawn AFTER some
+  // shapes already exist inside it (or one a shape gets drawn into
+  // later) must still sit visually BEHIND them, since it's a background
+  // container, not content. this.shapes' own order is untouched (only
+  // the draw pass reorders), since plenty of other code (hit-testing,
+  // shape lookup by id) relies on it meaning "creation order".
+  redrawCommitted() {
+    this.withCamera(this.committed, (ctx) => {
+      const frames = this.shapes.filter((s) => s.kind === "frame");
+      const rest = this.shapes.filter((s) => s.kind !== "frame");
+      frames.forEach((s) => drawShape(ctx, { ...s, points: this.resolvedPoints(s) }));
+      rest.forEach((s) => drawShape(ctx, { ...s, points: this.resolvedPoints(s) }));
+    });
+  },
+
+  toWorld(screenPt) {
+    return {
+      x: (screenPt.x - this.camera.x) / this.camera.zoom,
+      y: (screenPt.y - this.camera.y) / this.camera.zoom,
+    };
+  },
+
+  toScreen(worldPt) {
+    return {
+      x: worldPt.x * this.camera.zoom + this.camera.x,
+      y: worldPt.y * this.camera.zoom + this.camera.y,
+    };
+  },
+
+  // The ONE place that applies a changed camera everywhere it matters:
+  // the canvas-drawn layer (committed shapes, via redrawCommitted), the
+  // pending layer (the selection outline(s), if anything's selected --
+  // drawSelectionOutlines is safe to call unconditionally, see its own
+  // comment), the DOM shapes layer (a plain CSS transform -- see
+  // .shapes-layer's own comment for why individual stickies/text/ghost
+  // need no changes of their own), and presence cursors (kept in screen
+  // space deliberately, so peer markers/labels stay a constant SIZE
+  // regardless of zoom instead of scaling with board content -- see
+  // repositionCursors). Does NOT touch an in-progress gesture (a live
+  // stroke/geometry-drag/move-drag/marquee) -- panning or zooming
+  // mid-gesture is not a supported combination, same as every other tool.
+  applyCamera() {
+    this.shapesLayer.style.transform = `translate(${this.camera.x}px, ${this.camera.y}px) scale(${this.camera.zoom})`;
+    this.redrawCommitted();
+    this.drawSelectionOutlines();
+    this.repositionCursors();
+    this.updateZoomIndicator();
+  },
+
+  updateZoomIndicator() {
+    if (this.zoomIndicator) {
+      this.zoomIndicator.textContent = Math.round(this.camera.zoom * 100) + "%";
+    }
+  },
+
+  resetCamera() {
+    this.camera = { x: 0, y: 0, zoom: 1 };
+    this.applyCamera();
+  },
+
+  screenPoint(e) {
+    const rect = this.el.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  },
+
+  panBy(dx, dy) {
+    this.camera.x += dx;
+    this.camera.y += dy;
+    this.applyCamera();
+  },
+
+  // Zoom toward a fixed screen point (the cursor) -- the world point
+  // currently under the cursor stays under the cursor after the zoom,
+  // which is what makes zooming feel anchored rather than like the
+  // board is sliding out from under the pointer.
+  zoomAt(screenPt, rawDelta) {
+    const factor = Math.exp(-rawDelta * ZOOM_WHEEL_SENSITIVITY);
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.camera.zoom * factor));
+    const worldPt = this.toWorld(screenPt);
+
+    this.camera.zoom = newZoom;
+    this.camera.x = screenPt.x - worldPt.x * newZoom;
+    this.camera.y = screenPt.y - worldPt.y * newZoom;
+    this.applyCamera();
+  },
+
+  // Plain scroll pans (trackpad two-finger scroll or a mouse wheel);
+  // ctrl/cmd+scroll zooms -- same convention as every other
+  // infinite-canvas tool, and the one macOS itself uses for pinch-zoom
+  // (a trackpad pinch dispatches a wheel event with ctrlKey set, even
+  // with no physical Ctrl key involved). Works regardless of canDraw --
+  // panning/zooming is a local viewing concern, not a drawing
+  // permission, so a read-only joined board is still navigable.
+  wireCameraControls() {
+    this.el.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+          this.zoomAt(this.screenPoint(e), e.deltaY);
+        } else {
+          this.panBy(-e.deltaX, -e.deltaY);
+        }
+      },
+      { passive: false },
+    );
+
+    if (this.zoomIndicator) {
+      this.zoomIndicator.addEventListener("click", () => this.resetCamera());
+    }
+  },
+
+  wireSnapToggle() {
+    if (!this.snapToggle) return;
+
+    this.snapToggle.addEventListener("click", () => {
+      this.snapToGrid = !this.snapToGrid;
+      this.snapToggle.classList.toggle("snap-toggle-active", this.snapToGrid);
+    });
+  },
+
+  // Cursor markers deliberately do NOT live inside the zoom-scaled
+  // shapes-layer transform -- a peer's dot/label should stay a constant
+  // SCREEN size as you zoom, like a map pin, not grow or shrink with
+  // board content. So cursors-layer stays untransformed, and each
+  // marker's screen position is computed fresh from its stored WORLD
+  // position whenever the camera changes.
+  repositionCursors() {
+    this.cursors.forEach(({ el, x, y }) => {
+      const screenPt = this.toScreen({ x, y });
+      el.style.setProperty("--cx", screenPt.x + "px");
+      el.style.setProperty("--cy", screenPt.y + "px");
+    });
+  },
+
+  // Delegated on document (not per-button addEventListener) because these
+  // buttons live outside the phx-hook's phx-update="ignore" region -- any
+  // LiveView diff that touches the side-pane (a reorder, a newly-added
+  // tool, a reconnect that re-renders with newer server code than this
+  // tab's already-mounted hook) can replace the DOM nodes, which would
+  // silently orphan a listener attached directly to the old node. A
+  // delegated listener on document only cares that the click bubbles up,
+  // so it survives regardless of how many times the toolbox re-renders.
+  wireInkSwatches() {
+    this.onSwatchClick = (e) => {
+      const btn = e.target.closest(".swatch");
+      if (!btn) return;
+      document.querySelectorAll(".swatch").forEach((b) => b.classList.remove("swatch-active"));
+      btn.classList.add("swatch-active");
+      this.color = btn.dataset.color;
+      this.setTool("pen");
+    };
+    document.addEventListener("click", this.onSwatchClick);
+  },
+
+  wireStickySwatches() {
+    this.onStickyRowClick = (e) => {
+      const btn = e.target.closest(".sticky-row");
+      if (!btn) return;
+      document.querySelectorAll(".sticky-row").forEach((b) => b.classList.remove("sticky-row-active"));
+      btn.classList.add("sticky-row-active");
+      this.stickyColor = btn.dataset.stickyColor;
+      this.setTool("sticky");
+    };
+    document.addEventListener("click", this.onStickyRowClick);
+  },
+
+  wireToolButtons() {
+    this.onToolButtonClick = (e) => {
+      const btn = e.target.closest("[data-tool]");
+      if (btn) this.setTool(btn.dataset.tool);
+    };
+    document.addEventListener("click", this.onToolButtonClick);
+  },
+
+  wireCollapseToggle() {
+    const pane = document.getElementById("side-pane");
+    const btn = document.getElementById("side-pane-collapse");
+    if (!pane || !btn) return;
+
+    btn.addEventListener("click", () => {
+      const collapsed = pane.classList.toggle("collapsed");
+      btn.title = collapsed ? "Expand toolbox" : "Collapse toolbox";
+      // .side-pane's width is CSS-transitioned (150ms) -- only a window
+      // resize event normally triggers this.resize(), so without this
+      // the canvas's pixel buffer and inline CSS size stay pinned to
+      // whatever they were before the toggle while the pane's own box
+      // moves, and every click coordinate silently misaligns from what's
+      // actually drawn. Waits out the transition rather than resizing
+      // mid-animation into a half-collapsed width.
+      setTimeout(() => this.resize(), 180);
+    });
+  },
+
+  setTool(tool) {
+    this.activeTool = tool;
+    this.clearSelection();
+    if (tool !== "sticky") this.hideGhost();
+
+    document.querySelectorAll("[data-tool]").forEach((b) => {
+      b.classList.toggle("tool-row-active", b.dataset.tool === tool);
+    });
+    if (tool !== "sticky") {
+      document.querySelectorAll(".sticky-row").forEach((b) => b.classList.remove("sticky-row-active"));
+    }
+
+    // Sticky/text DOM elements only intercept clicks in select mode --
+    // every other tool needs clicks to fall through to the canvas below
+    // so drawing/placing works even where a shape already sits.
+    this.shapesLayer.classList.toggle("interactive", tool === "select");
+    this.pending.style.cursor = CURSOR_BY_TOOL[tool] || "crosshair";
+  },
+
+  wireCanvasInteraction() {
+    if (!this.canDraw) return;
+    const canvas = this.pending;
+    canvas.style.pointerEvents = "auto";
+
+    canvas.addEventListener("pointerdown", (e) => this.onCanvasDown(e));
+    canvas.addEventListener("pointermove", (e) => this.onCanvasMove(e));
+    window.addEventListener("pointerup", (e) => this.onCanvasUp(e));
+  },
+
+  onCanvasDown(e) {
+    const p = this.point(e);
+
+    if (this.activeTool === "pen") {
+      this.drawing = true;
+      this.points = [p];
+      return;
+    }
+
+    if (this.activeTool === "text" || this.activeTool === "sticky") {
+      // Without this, the pointerdown's own default focus handling runs
+      // AFTER this handler returns and steals focus back to <body> (the
+      // canvas itself isn't focusable), firing the textarea's blur
+      // before a single character is typed -- commit() then sees an
+      // empty value and silently discards it. Confirmed live: the
+      // textarea was being created and removed within the same event
+      // dispatch, every time, with no visible trace.
+      e.preventDefault();
+      this.hideGhost();
+      this.placeShapeInline(this.activeTool, this.snapPoint(p));
+      return;
+    }
+
+    if (GEOMETRY_KINDS.includes(this.activeTool)) {
+      this.drawingGeometry = { kind: this.activeTool, start: this.snapPoint(p) };
+      return;
+    }
+
+    // Kept OUTSIDE GEOMETRY_KINDS on purpose -- an arrow's two points are
+    // literal endpoints, not opposite corners of a box, and starting a
+    // drag ON a shape must snap to it rather than starting a fresh
+    // free-floating point there. fromShapeId null (started on empty
+    // canvas) makes this a plain freestanding endpoint, same as clicking
+    // empty canvas at the END does for the other side (see onCanvasUp).
+    if (this.activeTool === "arrow") {
+      this.drawingArrow = { fromShapeId: this.hitTestAnyShapeId(p), start: this.snapPoint(p) };
+      return;
+    }
+
+    if (this.activeTool === "select") {
+      const resizeHandle = this.hitTestResizeHandle(p);
+      if (resizeHandle) {
+        this.beginResize(resizeHandle.shapeId, resizeHandle.fixedCorner);
+        return;
+      }
+
+      const hit = this.hitTestCanvasShape(p);
+
+      if (hit) {
+        // Clicking a shape that's already part of the current
+        // selection drags the WHOLE selection together; clicking one
+        // outside it replaces the selection with just that shape first
+        // -- same convention as onShapeDown's own DOM-shape handling
+        // (they share beginMove for exactly this reason).
+        if (!this.selection.has(hit.shape_id)) {
+          const next = new Map([[hit.shape_id, "canvas"]]);
+
+          // Clicking a FRAME also grabs everything currently sitting
+          // inside its bounds, computed once here (not kept live for
+          // the rest of the drag -- membership shouldn't flicker as the
+          // frame passes over other shapes mid-move). Reuses
+          // shapesWithinRect verbatim, the exact same live-spatial-query
+          // containment marquee-select already does -- a frame's
+          // "what's inside me" question and a marquee's "what did I just
+          // rubber-band" question are the same question. Beyond this,
+          // beginMove needs no frame-specific code at all: it already
+          // moves whatever's in this.selection together, so a frame's
+          // contents just ride along as ordinary selected items.
+          if (hit.kind === "frame") {
+            this.shapesWithinRect(boundingBox(hit.points)).forEach((kind, shapeId) => {
+              if (shapeId !== hit.shape_id) next.set(shapeId, kind);
+            });
+          }
+
+          this.setSelection(next);
+        }
+        this.beginMove(p);
+      } else {
+        this.setSelection(new Map());
+        this.beginMarquee(p);
+      }
+    }
+  },
+
+  onCanvasMove(e) {
+    if (this.drawing) {
+      this.points.push(this.point(e));
+      this.withCamera(this.pending, (ctx) => {
+        drawStroke(ctx, { points: this.points, color: this.color, width: this.width });
+      });
+      return;
+    }
+
+    if (this.drawingGeometry) {
+      const p = this.snapPoint(this.point(e));
+      this.withCamera(this.pending, (ctx) => {
+        drawShape(ctx, { kind: this.drawingGeometry.kind, points: [this.drawingGeometry.start, p], color: this.color });
+      });
+      return;
+    }
+
+    if (this.drawingArrow) {
+      const p = this.point(e);
+      const { fromShapeId, start } = this.drawingArrow;
+      const toShapeId = this.hitTestAnyShapeId(p);
+      const points = this.resolveArrowEndpoints(fromShapeId, start, toShapeId, this.snapPoint(p));
+      this.withCamera(this.pending, (ctx) => drawShape(ctx, { kind: "arrow", points, color: this.color }));
+      return;
+    }
+
+    // Moving and marquee-select both track the pointer at the WINDOW
+    // level (started by beginMove/beginMarquee), not here -- a drag
+    // needs to keep tracking even if the pointer leaves the canvas
+    // bounds mid-gesture, same reason onShapeDown's own DOM-shape drag
+    // always has.
+
+    // Live placement preview -- a ghost of the sticky-to-be, following
+    // the pointer so its size/color is never a surprise. See CSS
+    // .shape-ghost's own comment for why it's purely decorative. Snapped
+    // too, so the preview never lies about where a click will land.
+    if (this.activeTool === "sticky") {
+      this.updateGhost(this.snapPoint(this.point(e)));
+    }
+  },
+
+  onCanvasUp(e) {
+    if (this.drawing) {
+      this.drawing = false;
+      this.clearCanvas(this.pending);
+
+      if (this.points.length > 0) {
+        this.pushEvent("stroke", { points: this.points, color: this.color, width: this.width });
+      }
+      this.points = [];
+      return;
+    }
+
+    if (this.drawingGeometry) {
+      const p = this.snapPoint(this.point(e));
+      this.clearCanvas(this.pending);
+
+      const { kind, start } = this.drawingGeometry;
+      this.drawingGeometry = null;
+
+      // Divided by zoom so this reads as a fixed SCREEN-pixel intent
+      // threshold regardless of zoom level -- a fixed world-unit
+      // threshold would make a deliberate small shape nearly impossible
+      // to draw when zoomed out, or trigger on a barely-there jitter
+      // when zoomed way in.
+      const minSize = MIN_GEOMETRY_SIZE_PX / this.camera.zoom;
+      if (Math.abs(p.x - start.x) >= minSize || Math.abs(p.y - start.y) >= minSize) {
+        this.pushEvent("draw_geometry", { kind, points: [start, p], color: this.color });
+      }
+      return;
+    }
+
+    if (this.drawingArrow) {
+      const p = this.point(e);
+      this.clearCanvas(this.pending);
+
+      const { fromShapeId, start } = this.drawingArrow;
+      const toShapeId = this.hitTestAnyShapeId(p);
+      this.drawingArrow = null;
+
+      const [fromPoint, toPoint] = this.resolveArrowEndpoints(fromShapeId, start, toShapeId, this.snapPoint(p));
+
+      const minSize = MIN_GEOMETRY_SIZE_PX / this.camera.zoom;
+      if (Math.abs(toPoint.x - fromPoint.x) >= minSize || Math.abs(toPoint.y - fromPoint.y) >= minSize) {
+        this.pushEvent("draw_geometry", {
+          kind: "arrow",
+          points: [fromPoint, toPoint],
+          color: this.color,
+          from_shape_id: fromShapeId,
+          to_shape_id: toShapeId,
+        });
+      }
+      return;
+    }
+
+    // Moving and marquee-select finish at the window level (see
+    // beginMove/beginMarquee) -- nothing to do here for either.
+  },
+
+  updateGhost(point) {
+    if (!this.ghostEl) {
+      this.ghostEl = document.createElement("div");
+      this.ghostEl.className = "shape-ghost";
+      this.shapesLayer.appendChild(this.ghostEl);
+    }
+    this.ghostEl.style.setProperty("--sx", point.x + "px");
+    this.ghostEl.style.setProperty("--sy", point.y + "px");
+    this.ghostEl.style.setProperty("--shape-color", this.stickyColor);
+  },
+
+  hideGhost() {
+    if (this.ghostEl) {
+      this.ghostEl.remove();
+      this.ghostEl = null;
+    }
+  },
+
+  // Runs regardless of canDraw -- a view-only peer's cursor is still
+  // worth showing to collaborators. Attached to the outer wrap (not
+  // `this.pending`, which only accepts pointer events when drawing is
+  // allowed -- see wireCanvasInteraction above): pointermove bubbles up
+  // from whichever layer the pointer is actually over, so this still
+  // fires either way. See CURSOR_SETTLE_MS's own comment for why this
+  // debounces instead of streaming.
+  wireCursorTracking() {
+    this.el.addEventListener("pointermove", (e) => {
+      const p = this.point(e);
+      clearTimeout(this.settleTimer);
+      this.settleTimer = setTimeout(() => {
+        this.pushEvent("cursor:settle", { x: p.x, y: p.y });
+      }, CURSOR_SETTLE_MS);
+    });
+
+    this.el.addEventListener("pointerleave", () => {
+      clearTimeout(this.settleTimer);
+      this.hideGhost();
+    });
+  },
+
+  wireKeyboardShortcuts() {
+    window.addEventListener("keydown", (e) => {
+      const inTextInput = e.target.tagName === "TEXTAREA" || e.target.isContentEditable;
+
+      // A text/sticky placement's own textarea has its own Escape
+      // handler (clears the value, blurs -- see placeShapeInline), so
+      // this deliberately does nothing while one is focused rather than
+      // fighting it or double-handling the same keypress.
+      if (e.key === "Escape" && !inTextInput) {
+        this.cancelGesture();
+        return;
+      }
+
+      if (this.activeTool === "select" && this.selection.size > 0 && !inTextInput) {
+        if (e.key === "Backspace" || e.key === "Delete") {
+          this.selection.forEach((_kind, shapeId) => this.pushEvent("remove_shape", { shape_id: shapeId }));
+          this.clearSelection();
+          return;
+        }
+      }
+
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta || inTextInput) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "c") {
+        this.copySelection();
+      } else if (key === "x") {
+        this.copySelection();
+        if (this.selection.size > 0) {
+          this.selection.forEach((_kind, shapeId) => this.pushEvent("remove_shape", { shape_id: shapeId }));
+          this.clearSelection();
+        }
+      } else if (key === "v") {
+        this.pasteClipboard();
+      }
+    });
+  },
+
+  // First aborts whatever's actively being drawn or dragged, WITHOUT
+  // committing anything to the server -- the canvas/shape(s) end up
+  // exactly where they were before the gesture started. THEN, if the
+  // active tool isn't Select, switches to it -- Escape is "get me out
+  // of here," a single universal rule, not a per-tool special case.
+  //
+  // This used to keep the active tool armed (matching a stated-but-only-
+  // partially-true "Figma/Excalidraw convention": both actually DO
+  // return to their move/select tool on Escape once nothing is
+  // mid-drag, e.g. a shape tool armed but not yet clicked). Kept
+  // "stay armed" originally for rapid multi-sticky placement (Event
+  // Storming: place Event, Command, Actor, ... back to back), but that
+  // reasoning didn't hold up: asked, and the real workflow for that is
+  // select-one-copy-paste-N-times, not re-arming the tool per note. The
+  // switch-to-select step ALSO retires the ghost-preview special case
+  // this function used to need: setTool already calls hideGhost() for
+  // any non-sticky tool, so a still-armed sticky's ghost disappears for
+  // free as a side effect of switching tools, no separate branch needed.
+  //
+  // moving/marquee only ever happen with Select already active, so the
+  // final switch-to-select is a no-op for them (skipped entirely,
+  // activeTool is already "select") -- important, since setTool ALSO
+  // unconditionally clears the selection, and cancelling a drag should
+  // leave the group selected, not deselect it. The static-selection
+  // branch below is for the same reason: activeTool is already "select"
+  // there too, so it needs its own explicit clearSelection -- the gap a
+  // live user report originally caught (click a shape, Escape with no
+  // drag at all: none of the checks below were true, so Escape was a
+  // silent no-op).
+  cancelGesture() {
+    if (this.drawing) {
+      this.drawing = false;
+      this.points = [];
+      this.clearCanvas(this.pending);
+    } else if (this.drawingGeometry) {
+      this.drawingGeometry = null;
+      this.clearCanvas(this.pending);
+    } else if (this.drawingArrow) {
+      this.drawingArrow = null;
+      this.clearCanvas(this.pending);
+    } else if (this.moving) {
+      this.moving.cancel();
+    } else if (this.resizing) {
+      this.resizing.cancel();
+    } else if (this.marquee) {
+      this.marquee.cancel();
+    } else if (this.selection.size > 0) {
+      this.clearSelection();
+    }
+
+    if (this.activeTool !== "select") this.setTool("select");
+  },
+
+  // Snapshots the WHOLE selection, not just one shape -- clipboard is
+  // an array now, one entry per selected shape, so pasting a
+  // marquee-selected group reproduces the whole group.
+  copySelection() {
+    if (this.selection.size === 0) return;
+
+    this.clipboard = [];
+    this.selection.forEach((kind, shapeId) => {
+      if (kind === "canvas") {
+        const shape = this.shapes.find((s) => s.shape_id === shapeId);
+        if (shape) {
+          this.clipboard.push({ kind: shape.kind, points: shape.points, color: shape.color, width: shape.width });
+        }
+      } else {
+        const entry = this.domShapes.get(shapeId);
+        if (entry) {
+          this.clipboard.push({ kind: entry.kind, points: entry.points, color: entry.color, text: entry.text });
+        }
+      }
+    });
+  },
+
+  // No backend command needed for any of copy/cut/paste -- paste just
+  // re-dispatches the same command a fresh placement would use (stroke/
+  // place_sticky/place_text/draw_geometry), each of which already mints
+  // its own shape_id server-side, so a pasted shape is simply a new
+  // shape from the server's point of view. One dispatch per clipboard
+  // entry -- there's no batch-placement command, and there doesn't need
+  // to be one: each arrives, renders, and offsets identically whether
+  // it came from a single-shape or whole-group copy.
+  //
+  // Reassigns this.clipboard to pasteOne's own offset points afterward,
+  // so a SECOND paste of the same clipboard offsets again from where the
+  // FIRST one landed, not from the original -- without this, repeated
+  // Ctrl+V (the actual workflow for placing several stickies: copy one,
+  // paste it N times) stacked every paste at the exact same spot, since
+  // pasteOne always read the clipboard's original, never-updated points.
+  // Asked live ("shouldn't paste respect a little offset?") after
+  // exactly that stacking was visible. copySelection/cutSelection both
+  // rebuild the clipboard from scratch, so copying something new
+  // correctly resets the cascade back to the original position.
+  pasteClipboard() {
+    if (!this.clipboard) return;
+    this.clipboard = this.clipboard.map((item) => this.pasteOne(item));
+  },
+
+  // Returns item with its points replaced by the offset copy just
+  // dispatched -- pasteClipboard uses this to make the NEXT paste of the
+  // same clipboard cascade from here instead of restacking on top of it.
+  pasteOne(item) {
+    const points = item.points.map((p) => ({
+      x: p.x + PASTE_OFFSET_PX,
+      y: p.y + PASTE_OFFSET_PX,
+    }));
+
+    switch (item.kind) {
+      case "stroke":
+        this.pushEvent("stroke", { points, color: item.color, width: item.width });
+        break;
+
+      case "sticky":
+        this.pushEvent("place_sticky", { x: points[0].x, y: points[0].y, color: item.color, text: item.text });
+        break;
+
+      case "text":
+        this.pushEvent("place_text", { x: points[0].x, y: points[0].y, color: item.color, text: item.text });
+        break;
+
+      default:
+        if (GEOMETRY_KINDS.includes(item.kind)) {
+          this.pushEvent("draw_geometry", { kind: item.kind, points, color: item.color });
+        }
+    }
+
+    return { ...item, points };
+  },
+
+  // Every caller of point(e) wants a WORLD coordinate -- what gets
+  // stored, drawn (via withCamera, which applies the same camera), and
+  // hit-tested against. screenPoint(e) is the one place that wants the
+  // raw screen position instead (zoomAt, to keep the point under the
+  // cursor fixed).
+  point(e) {
+    const rect = this.pending.getBoundingClientRect();
+    return this.toWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  },
+
+  // Snaps a single WORLD point to the nearest grid intersection -- used
+  // for fresh placement (sticky/text/geometry corners), where there's no
+  // existing shape geometry to preserve. Never snaps a freehand Pen
+  // stroke: that goes through point(e) directly, not this, since forcing
+  // every point of a freehand curve onto a 28px grid would turn it into
+  // a staircase.
+  snapPoint(point) {
+    if (!this.snapToGrid) return point;
+    return {
+      x: Math.round(point.x / SNAP_GRID_PX) * SNAP_GRID_PX,
+      y: Math.round(point.y / SNAP_GRID_PX) * SNAP_GRID_PX,
+    };
+  },
+
+  // Adjusts a raw drag delta so referencePoint + delta lands exactly on
+  // a grid intersection, then hands back that SAME adjusted delta for
+  // every point in the moving selection. Snapping the delta once here,
+  // rather than snapping each point independently after the fact, is
+  // what keeps a multi-point shape's own internal spacing (a stroke's
+  // curve, a rectangle's aspect ratio) from visibly distorting when snap
+  // is on -- every point moves by the identical adjusted amount.
+  snapDelta(dx, dy, referencePoint) {
+    if (!this.snapToGrid) return { dx, dy };
+    const snapped = this.snapPoint({ x: referencePoint.x + dx, y: referencePoint.y + dy });
+    return { dx: snapped.x - referencePoint.x, dy: snapped.y - referencePoint.y };
+  },
+
+  // Shared placement flow for sticky/text: a local, not-yet-confirmed
+  // <textarea> at the click point, styled to preview the eventual shape.
+  // Blur/Enter with non-empty text dispatches the real command; the
+  // confirmed shape renders moments later via the normal shapes:snapshot/
+  // shape_placed broadcast path, same "pending scratchpad, then
+  // server-confirmed" pattern strokes already use.
+  placeShapeInline(kind, point) {
+    const existing = this.el.querySelector(".shape-pending");
+    if (existing) existing.remove();
+
+    const textarea = document.createElement("textarea");
+    textarea.className = kind === "sticky" ? "shape-sticky shape-pending shape-editing" : "shape-text shape-pending shape-editing";
+    textarea.style.setProperty("--sx", point.x + "px");
+    textarea.style.setProperty("--sy", point.y + "px");
+    textarea.style.setProperty("--shape-color", kind === "sticky" ? this.stickyColor : this.color);
+    textarea.style.border = "none";
+    textarea.style.resize = "none";
+    textarea.style.font = "inherit";
+    textarea.style.background = kind === "sticky" ? "var(--shape-color)" : "transparent";
+    textarea.style.color = kind === "sticky" ? "var(--slate-deep)" : "var(--shape-color)";
+    textarea.placeholder = kind === "sticky" ? "Note..." : "Text...";
+
+    this.shapesLayer.appendChild(textarea);
+    textarea.focus();
+
+    const commit = () => {
+      const text = textarea.value.trim();
+      textarea.remove();
+      if (!text) return;
+
+      if (kind === "sticky") {
+        this.pushEvent("place_sticky", { x: point.x, y: point.y, color: this.stickyColor, text });
+      } else {
+        this.pushEvent("place_text", { x: point.x, y: point.y, color: this.color, text });
+      }
+    };
+
+    textarea.addEventListener("blur", commit);
+    textarea.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        textarea.blur();
+      }
+      if (e.key === "Escape") {
+        textarea.value = "";
+        textarea.blur();
+      }
+    });
+  },
+
+  // The world-space bounding box of ANY shape, canvas or DOM, by id --
+  // an arrow needs this to know what it's pointing at regardless of
+  // which rendering substrate the target uses (see this file's own
+  // header for why shapes split across the two). Sticky/text sizing
+  // comes straight from the rendered DOM element's own box: sticky is a
+  // fixed CSS size, text auto-sizes to its content, and since the whole
+  // shapes-layer is scaled together by the camera (see mounted's own
+  // comment on that transform), offsetWidth/offsetHeight are already in
+  // WORLD units with no zoom division needed. Returns null for an
+  // unresolvable id (removed, or never existed) -- every caller treats
+  // that as "fall back to whatever fixed point I already have".
+  shapeBoundingBox(shapeId) {
+    const canvasShape = this.shapes.find((s) => s.shape_id === shapeId);
+    if (canvasShape) return boundingBox(canvasShape.points);
+
+    const entry = this.domShapes.get(shapeId);
+    if (entry) {
+      const { x, y } = entry.points[0];
+      return { minX: x, minY: y, maxX: x + entry.el.offsetWidth, maxY: y + entry.el.offsetHeight };
+    }
+
+    return null;
+  },
+
+  // point-in-any-shape, canvas or DOM -- what the arrow tool's drag
+  // gesture uses to decide what it's hovering/landing on. Canvas shapes
+  // reuse hitTestCanvasShape's own threshold-aware test; DOM shapes have
+  // no equivalent (their hit-testing today is native browser click
+  // targets via onShapeDown, never a geometric test), so this is the
+  // one place that needs a plain point-in-box check for them.
+  hitTestAnyShapeId(point) {
+    const canvasHit = this.hitTestCanvasShape(point);
+    if (canvasHit) return canvasHit.shape_id;
+
+    for (const shapeId of this.domShapes.keys()) {
+      const box = this.shapeBoundingBox(shapeId);
+      if (box && point.x >= box.minX && point.x <= box.maxX && point.y >= box.minY && point.y <= box.maxY) {
+        return shapeId;
+      }
+    }
+    return null;
+  },
+
+  // The live-resolved endpoints of an arrow currently being DRAWN (not
+  // yet a stored shape) -- shared by onCanvasMove's preview and
+  // onCanvasUp's finish, so both always agree on where it would land.
+  // fromFallback/toFallback are used only for whichever end ISN'T
+  // attached to a shape_id. Same clipToBox trick as resolvedPoints
+  // below, just against a live in-progress endpoint instead of a
+  // stored shape's own fallback points.
+  resolveArrowEndpoints(fromShapeId, fromFallback, toShapeId, toFallback) {
+    const fromBox = fromShapeId ? this.shapeBoundingBox(fromShapeId) : null;
+    const toBox = toShapeId ? this.shapeBoundingBox(toShapeId) : null;
+    const fromAim = toBox ? boxCenter(toBox) : toFallback;
+    const toAim = fromBox ? boxCenter(fromBox) : fromFallback;
+
+    return [fromBox ? clipToBox(fromBox, fromAim) : fromFallback, toBox ? clipToBox(toBox, toAim) : toFallback];
+  },
+
+  // The live-resolved points to actually DRAW a shape with -- a no-op
+  // for every kind except arrow, where from_shape_id/to_shape_id (when
+  // present) win over the shape's own stored `points`, which are just
+  // the fallback captured at creation time. This is the ONE place that
+  // turns a stored shape_id reference into real coordinates; every
+  // draw call site (redrawCommitted, renderCanvasShape) and every
+  // geometric query against an arrow's position (hitTestCanvasShape,
+  // shapesWithinRect) goes through this, so an arrow always hit-tests
+  // and redraws at exactly where it's currently VISIBLE, not wherever
+  // it happened to be pointing when it was created. Moving/resizing the
+  // shape an arrow points to costs nothing here -- no event, no stored
+  // relationship to update, just a fresh lookup on the next draw.
+  resolvedPoints(shape) {
+    if (shape.kind !== "arrow") return shape.points;
+    const [fallbackFrom, fallbackTo] = shape.points;
+    return this.resolveArrowEndpoints(shape.from_shape_id, fallbackFrom, shape.to_shape_id, fallbackTo);
+  },
+
+  // Only the single currently-selected geometry shape's own four corners
+  // are ever live resize targets -- checked BEFORE hitTestCanvasShape in
+  // onCanvasDown so grabbing a handle wins over the shape underneath it
+  // (a handle always sits exactly on the shape's own edge/corner, so the
+  // two hit-test regions genuinely overlap).
+  hitTestResizeHandle(point) {
+    const canvasSelected = [...this.selection.entries()].filter(([, kind]) => kind === "canvas");
+    if (canvasSelected.length !== 1) return null;
+
+    const shape = this.shapes.find((s) => s.shape_id === canvasSelected[0][0]);
+    if (!shape || !GEOMETRY_KINDS.includes(shape.kind)) return null;
+
+    const threshold = RESIZE_HANDLE_PX / this.camera.zoom;
+    const handle = resizeHandlePoints(shape).find(
+      ({ corner }) => Math.hypot(point.x - corner.x, point.y - corner.y) <= threshold,
+    );
+    return handle ? { shapeId: shape.shape_id, fixedCorner: handle.opposite } : null;
+  },
+
+  // Threshold divided by zoom, same reasoning as onCanvasUp's
+  // minSize: point (and every stored shape point) is WORLD space, so a
+  // fixed HIT_THRESHOLD_PX would feel impossibly precise when zoomed
+  // out and overly forgiving when zoomed in. Dividing keeps the
+  // effective SCREEN-pixel tolerance constant across zoom levels.
+  hitTestCanvasShape(point) {
+    const threshold = HIT_THRESHOLD_PX / this.camera.zoom;
+    const hits = (shape) => {
+      const points = this.resolvedPoints(shape);
+      if (shape.kind === "stroke") return this.strokeHit(point, { ...shape, points }, threshold);
+      // A thin diagonal line's own bounding box is mostly empty space --
+      // segment distance (same precision strokes get) instead of the
+      // box-fill test every other kind uses, or clicking near the middle
+      // of a long arrow would almost never actually hit it.
+      if (shape.kind === "arrow") return distanceToSegment(point, points[0], points[1]) <= threshold;
+      return pointInBoundingBox(point, points, threshold);
+    };
+
+    // Frames checked LAST -- a frame's own bounding box legitimately
+    // overlaps every shape inside it, and a click on one of those
+    // shapes must always hit THAT shape, never the background frame it
+    // happens to sit inside. Only when nothing else matches does a
+    // click fall through to select the frame itself (e.g. to move the
+    // whole group, or to click genuinely empty space inside it).
+    return (
+      this.shapes.find((shape) => shape.kind !== "frame" && hits(shape)) ||
+      this.shapes.find((shape) => shape.kind === "frame" && hits(shape))
+    );
+  },
+
+  strokeHit(point, stroke, threshold) {
+    const box = boundingBox(stroke.points);
+    if (
+      point.x < box.minX - threshold ||
+      point.x > box.maxX + threshold ||
+      point.y < box.minY - threshold ||
+      point.y > box.maxY + threshold
+    ) {
+      return false;
+    }
+
+    for (let i = 0; i < stroke.points.length - 1; i++) {
+      if (distanceToSegment(point, stroke.points[i], stroke.points[i + 1]) <= threshold) {
+        return true;
+      }
+    }
+    return stroke.points.length === 1 && Math.hypot(point.x - stroke.points[0].x, point.y - stroke.points[0].y) <= threshold;
+  },
+
+  // Replaces the WHOLE selection (a Map of shape_id -> "canvas"|"dom")
+  // -- zero, one, or many shapes, mixed kinds allowed. The one place
+  // that owns the .shape-selected CSS class and the canvas outline
+  // layer, so nothing else touches either directly.
+  setSelection(selection) {
+    this.selection.forEach((kind, shapeId) => {
+      if (kind !== "dom") return;
+      const entry = this.domShapes.get(shapeId);
+      if (entry) entry.el.classList.remove("shape-selected");
+    });
+
+    this.selection = selection;
+
+    this.selection.forEach((kind, shapeId) => {
+      if (kind !== "dom") return;
+      const entry = this.domShapes.get(shapeId);
+      if (entry) entry.el.classList.add("shape-selected");
+    });
+
+    this.drawSelectionOutlines();
+  },
+
+  clearSelection() {
+    this.setSelection(new Map());
+  },
+
+  // Always clears pending first, whether or not anything is selected --
+  // makes this safe to call any time pending needs a refresh (see
+  // applyCamera), not just right after a selection changes. Draws one
+  // dashed box per canvas shape currently selected (DOM shapes get
+  // their own outline via the .shape-selected CSS class instead, set
+  // in setSelection).
+  drawSelectionOutlines() {
+    this.clearCanvas(this.pending);
+
+    const canvasSelected = [...this.selection.entries()].filter(([, kind]) => kind === "canvas");
+    if (canvasSelected.length === 0) return;
+
+    this.withCamera(this.pending, (ctx) => {
+      canvasSelected.forEach(([shapeId]) => {
+        const shape = this.shapes.find((s) => s.shape_id === shapeId);
+        if (!shape) return;
+
+        const box = boundingBox(shape.points);
+        ctx.save();
+        ctx.strokeStyle = "#d89b4a";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.strokeRect(box.minX - 6, box.minY - 6, box.maxX - box.minX + 12, box.maxY - box.minY + 12);
+        ctx.restore();
+      });
+
+      // Resize handles only make sense for a single selected shape (what
+      // would dragging one handle mean for N shapes at once?) and only
+      // for the four "two opposite corners" kinds -- see RESIZE_HANDLE_PX
+      // above. Sized in world units scaled by 1/zoom, same reasoning as
+      // repositionCursors: a grab handle is a UI affordance, not board
+      // content, so it should stay a constant SCREEN size as you zoom.
+      if (canvasSelected.length === 1) {
+        const shape = this.shapes.find((s) => s.shape_id === canvasSelected[0][0]);
+        if (shape && GEOMETRY_KINDS.includes(shape.kind)) {
+          const handlePx = RESIZE_HANDLE_PX / this.camera.zoom;
+          ctx.save();
+          ctx.fillStyle = "#d89b4a";
+          resizeHandlePoints(shape).forEach(({ corner }) => {
+            ctx.fillRect(corner.x - handlePx / 2, corner.y - handlePx / 2, handlePx, handlePx);
+          });
+          ctx.restore();
+        }
+      }
+    });
+  },
+
+  updateEmptyState(hasShapes) {
+    if (this.emptyState) this.emptyState.style.display = hasShapes ? "none" : "flex";
+  },
+
+  // Dispatches by kind: strokes/basic shapes stay on canvas, sticky/text
+  // render as DOM elements -- see this file's own header for why.
+  renderShape(shape) {
+    if (shape.kind === "sticky" || shape.kind === "text") {
+      this.renderDomShape(shape);
+    } else {
+      this.renderCanvasShape(shape);
+    }
+  },
+
+  renderCanvasShape(shape) {
+    this.shapes.push(shape);
+    this.drawWithCamera(this.committed, (ctx) => drawShape(ctx, { ...shape, points: this.resolvedPoints(shape) }));
+  },
+
+  renderDomShape(shape) {
+    const point = shape.points[0];
+    let entry = this.domShapes.get(shape.shape_id);
+
+    if (!entry) {
+      const el = document.createElement("div");
+      el.className = shape.kind === "sticky" ? "shape-sticky" : "shape-text";
+      this.shapesLayer.appendChild(el);
+
+      el.addEventListener("pointerdown", (e) => this.onShapeDown(e, shape.shape_id));
+
+      entry = { el, kind: shape.kind };
+      this.domShapes.set(shape.shape_id, entry);
+    }
+
+    entry.points = shape.points;
+    entry.color = shape.color;
+    entry.text = shape.text;
+
+    entry.el.style.setProperty("--sx", point.x + "px");
+    entry.el.style.setProperty("--sy", point.y + "px");
+    entry.el.style.setProperty("--shape-color", shape.color);
+    entry.el.textContent = shape.text;
+  },
+
+  onShapeDown(e, shapeId) {
+    if (this.activeTool !== "select") return;
+    e.stopPropagation();
+
+    // Same convention as onCanvasDown's own canvas-shape handling (they
+    // share beginMove for exactly this reason): clicking a shape
+    // already part of the current selection drags the whole group;
+    // clicking one outside it replaces the selection with just that
+    // shape first.
+    if (!this.selection.has(shapeId)) {
+      if (!this.domShapes.has(shapeId)) return;
+      this.setSelection(new Map([[shapeId, "dom"]]));
+    }
+
+    this.beginMove(this.point(e));
+  },
+
+  // Starts a drag of the CURRENT selection -- one or many shapes,
+  // canvas and/or DOM mixed freely. Window-level listeners (not scoped
+  // to the canvas) so the drag keeps tracking even if the pointer
+  // leaves the canvas bounds. Escape cancellation goes through
+  // cancelGesture -> this.moving.cancel() -- deliberately NOT its own
+  // separate "keydown" listener (unlike the single-shape DOM-drag this
+  // replaced): wireKeyboardShortcuts is the one place that owns Escape,
+  // so there's exactly one path to reason about instead of two
+  // listeners racing on the same keypress.
+  beginMove(startPoint) {
+    const items = [...this.selection.entries()].map(([shapeId, kind]) => {
+      const originalPoints =
+        kind === "canvas"
+          ? this.shapes.find((s) => s.shape_id === shapeId).points
+          : this.domShapes.get(shapeId).points;
+      return { shapeId, kind, originalPoints };
+    });
+
+    let lastTranslated = items.map(({ shapeId, originalPoints }) => ({ shapeId, translated: originalPoints }));
+
+    const applyDelta = (dx, dy) => {
+      lastTranslated = items.map((item) => ({
+        shapeId: item.shapeId,
+        kind: item.kind,
+        translated: item.originalPoints.map((pt) => ({ x: pt.x + dx, y: pt.y + dy })),
+      }));
+
+      lastTranslated
+        .filter((item) => item.kind === "dom")
+        .forEach((item) => {
+          const entry = this.domShapes.get(item.shapeId);
+          entry.el.style.setProperty("--sx", item.translated[0].x + "px");
+          entry.el.style.setProperty("--sy", item.translated[0].y + "px");
+        });
+
+      const canvasItems = lastTranslated.filter((item) => item.kind === "canvas");
+      this.withCamera(this.pending, (ctx) => {
+        canvasItems.forEach((item) => {
+          const shape = this.shapes.find((s) => s.shape_id === item.shapeId);
+          drawShape(ctx, { ...shape, points: item.translated });
+        });
+      });
+    };
+
+    // Snapping the DELTA (once, against a single reference point) rather
+    // than snapping every item's points independently afterward is what
+    // keeps the whole selection's own internal layout intact -- a
+    // multi-shape marquee-move stays exactly as spaced as it started,
+    // just aligned to the grid as a group; snapping per-point instead
+    // would let each shape drift to its OWN nearest grid line and pull
+    // the group apart.
+    const referencePoint = items[0].originalPoints[0];
+
+    const onMove = (moveEvent) => {
+      const p = this.point(moveEvent);
+      const { dx, dy } = this.snapDelta(p.x - startPoint.x, p.y - startPoint.y, referencePoint);
+      applyDelta(dx, dy);
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    const onUp = (upEvent) => {
+      cleanupListeners();
+      this.moving = null;
+
+      const p = this.point(upEvent);
+      if (p.x !== startPoint.x || p.y !== startPoint.y) {
+        lastTranslated.forEach(({ shapeId, translated }) => {
+          this.pushEvent("move_shape", { shape_id: shapeId, points: translated });
+        });
+      }
+
+      this.clearCanvas(this.pending);
+      this.drawSelectionOutlines();
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+
+    this.moving = {
+      cancel: () => {
+        cleanupListeners();
+        this.moving = null;
+
+        items
+          .filter((item) => item.kind === "dom")
+          .forEach((item) => {
+            const entry = this.domShapes.get(item.shapeId);
+            entry.el.style.setProperty("--sx", item.originalPoints[0].x + "px");
+            entry.el.style.setProperty("--sy", item.originalPoints[0].y + "px");
+          });
+
+        this.clearCanvas(this.pending);
+        this.drawSelectionOutlines();
+      },
+    };
+  },
+
+  // Resize is architecturally identical to move (see move_shape and
+  // applyMove): both just replace a shape's `points` wholesale, so this
+  // dispatches the exact same command -- only the client needed new code
+  // at all. fixedCorner is the diagonally opposite corner and stays put
+  // for the whole drag; the dragged corner just follows the pointer,
+  // snapped like any other placement.
+  beginResize(shapeId, fixedCorner) {
+    const shape = this.shapes.find((s) => s.shape_id === shapeId);
+    let lastPoints = shape.points;
+    let moved = false;
+
+    const onMove = (moveEvent) => {
+      moved = true;
+      lastPoints = [fixedCorner, this.snapPoint(this.point(moveEvent))];
+      this.withCamera(this.pending, (ctx) => drawShape(ctx, { ...shape, points: lastPoints }));
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    const onUp = () => {
+      cleanupListeners();
+      this.resizing = null;
+      if (moved) this.pushEvent("move_shape", { shape_id: shapeId, points: lastPoints });
+      this.clearCanvas(this.pending);
+      this.drawSelectionOutlines();
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+
+    this.resizing = {
+      cancel: () => {
+        cleanupListeners();
+        this.resizing = null;
+        this.clearCanvas(this.pending);
+        this.drawSelectionOutlines();
+      },
+    };
+  },
+
+  // Rubber-band select: a select-tool drag starting on empty canvas.
+  // Intersection, not full-containment -- a shape only needs to be
+  // touched by the marquee, matching Figma's default "touch" behavior
+  // (more forgiving than requiring the whole shape inside the box).
+  beginMarquee(startPoint) {
+    const draw = (rect) => {
+      this.withCamera(this.pending, (ctx) => {
+        ctx.save();
+        ctx.fillStyle = "rgba(216, 155, 74, 0.12)";
+        ctx.strokeStyle = "#d89b4a";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.fillRect(rect.minX, rect.minY, rect.maxX - rect.minX, rect.maxY - rect.minY);
+        ctx.strokeRect(rect.minX, rect.minY, rect.maxX - rect.minX, rect.maxY - rect.minY);
+        ctx.restore();
+      });
+    };
+
+    const rectFrom = (p) => ({
+      minX: Math.min(startPoint.x, p.x),
+      minY: Math.min(startPoint.y, p.y),
+      maxX: Math.max(startPoint.x, p.x),
+      maxY: Math.max(startPoint.y, p.y),
+    });
+
+    let lastRect = rectFrom(startPoint);
+
+    const onMove = (moveEvent) => {
+      lastRect = rectFrom(this.point(moveEvent));
+      draw(lastRect);
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    const onUp = () => {
+      cleanupListeners();
+      this.marquee = null;
+      this.clearCanvas(this.pending);
+      this.setSelection(this.shapesWithinRect(lastRect));
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+
+    this.marquee = {
+      cancel: () => {
+        cleanupListeners();
+        this.marquee = null;
+        this.clearCanvas(this.pending);
+      },
+    };
+  },
+
+  // Canvas shapes use their real bounding box; DOM shapes (stickies/
+  // text) use just their anchor point (points[0]) rather than their
+  // actual on-screen footprint -- a deliberate simplification, good
+  // enough for a rubber-band gesture without threading each element's
+  // live CSS size through world-space math.
+  shapesWithinRect(rect) {
+    const selection = new Map();
+
+    this.shapes.forEach((shape) => {
+      const box = boundingBox(this.resolvedPoints(shape));
+      const intersects =
+        box.minX <= rect.maxX && box.maxX >= rect.minX && box.minY <= rect.maxY && box.maxY >= rect.minY;
+      if (intersects) selection.set(shape.shape_id, "canvas");
+    });
+
+    this.domShapes.forEach((entry, shapeId) => {
+      const [pt] = entry.points;
+      if (pt.x >= rect.minX && pt.x <= rect.maxX && pt.y >= rect.minY && pt.y <= rect.maxY) {
+        selection.set(shapeId, "dom");
+      }
+    });
+
+    return selection;
+  },
+
+  applyMove(shapeId, points) {
+    const idx = this.shapes.findIndex((s) => s.shape_id === shapeId);
+    if (idx !== -1) {
+      this.shapes[idx] = { ...this.shapes[idx], points };
+      this.redrawCommitted();
+      if (this.selection.has(shapeId)) this.drawSelectionOutlines();
+      return;
+    }
+
+    const entry = this.domShapes.get(shapeId);
+    if (entry) {
+      entry.points = points;
+      entry.el.style.setProperty("--sx", points[0].x + "px");
+      entry.el.style.setProperty("--sy", points[0].y + "px");
+      // A moved sticky/text isn't itself on the canvas, but an arrow
+      // pointing AT it lives there and needs to follow -- redrawCommitted
+      // re-resolves every arrow's live endpoints fresh, so this is the
+      // one place a DOM-shape move needs to reach back into canvas land.
+      this.redrawCommitted();
+    }
+  },
+
+  applyRemove(shapeId) {
+    if (this.selection.has(shapeId)) {
+      const next = new Map(this.selection);
+      next.delete(shapeId);
+      this.setSelection(next);
+    }
+
+    const idx = this.shapes.findIndex((s) => s.shape_id === shapeId);
+    if (idx !== -1) {
+      this.shapes.splice(idx, 1);
+      this.redrawCommitted();
+      return;
+    }
+
+    const entry = this.domShapes.get(shapeId);
+    if (entry) {
+      entry.el.remove();
+      this.domShapes.delete(shapeId);
+    }
+  },
+
+  // instant=true (the late-join snapshot only) places a marker with no
+  // ghost left behind -- there's no "previous position" to fade from,
+  // this peer simply wasn't visible a moment ago.
+  //
+  // x/y arrive as WORLD coordinates (the server/mesh never sees screen
+  // space) -- converted to screen here at render time, and stored as
+  // world in this.cursors so repositionCursors can re-derive the right
+  // screen position whenever THIS viewer's own camera changes, with no
+  // extra message from the peer needed.
+  updateCursor({ peer_id, x, y, color, label }, instant) {
+    const existing = this.cursors.get(peer_id);
+    if (existing && !instant) this.spawnGhost(existing);
+
+    const el = existing ? existing.el : this.createCursorEl();
+    if (!this.cursorsLayer.contains(el)) this.cursorsLayer.appendChild(el);
+
+    const screenPt = this.toScreen({ x, y });
+    el.style.setProperty("--cx", screenPt.x + "px");
+    el.style.setProperty("--cy", screenPt.y + "px");
+    el.style.setProperty("--peer-color", color);
+    el.querySelector(".cursor-label").textContent = label;
+
+    this.cursors.set(peer_id, { el, x, y, color, label });
+  },
+
+  removeCursor(peer_id) {
+    const existing = this.cursors.get(peer_id);
+    if (!existing) return;
+    this.spawnGhost(existing);
+    existing.el.remove();
+    this.cursors.delete(peer_id);
+  },
+
+  createCursorEl() {
+    const el = document.createElement("div");
+    el.className = "cursor-marker";
+
+    const dot = document.createElement("span");
+    dot.className = "cursor-dot";
+    el.appendChild(dot);
+
+    const tag = document.createElement("span");
+    tag.className = "cursor-label";
+    el.appendChild(tag);
+
+    return el;
+  },
+
+  // The old position, left behind to fade -- see .cursor-ghost's own CSS
+  // comment for why this reads as motion without a continuous glide.
+  // x/y here are WORLD (see updateCursor's own comment); converted to
+  // screen once, at spawn time -- unlike a live cursor marker, a ghost
+  // is a short-lived (650ms), untracked, fire-and-forget element, so it
+  // does NOT get repositioned if the camera changes while it's fading.
+  spawnGhost({ x, y, color, label }) {
+    const ghost = this.createCursorEl();
+    ghost.classList.add("cursor-ghost");
+    const screenPt = this.toScreen({ x, y });
+    ghost.style.setProperty("--cx", screenPt.x + "px");
+    ghost.style.setProperty("--cy", screenPt.y + "px");
+    ghost.style.setProperty("--peer-color", color);
+    ghost.querySelector(".cursor-label").textContent = label;
+    this.cursorsLayer.appendChild(ghost);
+
+    requestAnimationFrame(() => ghost.classList.add("cursor-ghost-fade"));
+    setTimeout(() => ghost.remove(), 650);
+  },
+
+  destroyed() {
+    clearTimeout(this.settleTimer);
+    // push_navigate (boards list -> a board) tears down and remounts this
+    // hook WITHOUT a full page reload, so document-level delegated
+    // listeners must be removed here or they accumulate one set per visit.
+    document.removeEventListener("click", this.onSwatchClick);
+    document.removeEventListener("click", this.onStickyRowClick);
+    document.removeEventListener("click", this.onToolButtonClick);
+  },
+};
