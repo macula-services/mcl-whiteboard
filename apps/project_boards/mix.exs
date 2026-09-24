@@ -36,7 +36,7 @@ defmodule ProjectBoards.MixProject do
       # guide_board_lifecycle, which owns their topics.
       {:guide_board_lifecycle, in_umbrella: true},
       # :macula_subscriber is the behaviour the mesh subscribers implement.
-      {:macula, "~> 12.1"}
+      {:macula, "~> 12.2"}
     ]
   end
 end

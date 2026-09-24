@@ -68,11 +68,6 @@ jobs:
                 false -> io:format("mldsa87 MISSING~n"), halt(1)
             end.'
 
-      # rocksdb (barrel_docdb's store, via mcl_om) links these; the
-      # Containerfile's builder installs the same list.
-      - name: Install system libraries
-        run: apt-get update -y && apt-get install -y --no-install-recommends libsnappy-dev libzstd-dev liblz4-dev
-
       - name: Cache deps and _build
         uses: actions/cache@v4
         with:

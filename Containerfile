@@ -20,16 +20,7 @@ ARG RUNNER_IMAGE="ghcr.io/macula-io/macula-pq-runtime:20260923-1444@sha256:15a55
 FROM ${BUILDER_IMAGE} AS builder
 
 # The builder carries the C toolchain, cmake, OpenSSL headers, git, Rust, Hex
-# and rebar3 at pinned versions. Only what it lacks is installed, the same list
-# the test job installs: rocksdb (barrel_docdb's store, via mcl_om) links the
-# system compression libraries, and without them its CMake tries to vendor zstd
-# from a directory the hex package does not carry and fails.
-RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    libzstd-dev \
-    libsnappy-dev \
-    liblz4-dev \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
-
+# and rebar3 at pinned versions; nothing is installed on top of it.
 WORKDIR /app
 ENV MIX_ENV=prod
 # macula's QUIC NIF is compiled from source against this OTP, never fetched
@@ -87,11 +78,8 @@ FROM ${RUNNER_IMAGE}
 LABEL org.opencontainers.image.source="https://github.com/macula-services/mcl-whiteboard"
 
 # macula-pq-runtime carries OpenSSL 3.5, libstdc++, ncurses, ca-certificates,
-# curl and a UTF-8 locale. libsnappy1v5 is the one shared library rocksdb links
-# against that the base lacks; libzstd1 and liblz4-1 are in it already.
-RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    libsnappy1v5 \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+# curl and a UTF-8 locale; nothing is installed on top of it, so the runtime's
+# packages are exactly the pinned image's.
 
 WORKDIR /app
 RUN useradd --create-home --shell /bin/bash app

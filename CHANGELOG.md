@@ -5,6 +5,18 @@ Versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- On mcl_om 0.28 and macula 12.2, which mcl_om 0.28 requires. The service now
+  advertises `mcl-whiteboard/info` (mcl_om's, on every service); a test asks the
+  booted service and carries the answer through macula's frame codec.
+- No rocksdb anywhere: mcl_om 0.27 dropped barrel_docdb, and this service never
+  used it itself. The barrel data_dir setting, the compression libraries in the
+  builder and CI, and libsnappy in the runtime are gone.
+- The claim's labels come from `MCL_SERVICE_NAME` / `MCL_BOX`, read by mcl_om
+  itself; the old `box` default of "dev" would have labelled every unset box
+  that way on the realm's desk.
+
 ### Added
 
 - The whiteboard on macula 12, post-quantum only, over `mcl_om` 0.26. It replaces

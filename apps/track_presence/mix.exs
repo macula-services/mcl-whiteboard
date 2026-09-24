@@ -36,8 +36,8 @@ defmodule TrackPresence.MixProject do
       # (WhiteboardTopic, PeerDepartedV1ToMesh.topic/0).
       {:guide_board_lifecycle, in_umbrella: true},
       {:phoenix_pubsub, "~> 2.3"},
-      {:mcl_om, "~> 0.26 and >= 0.26.5"},
-      {:macula, "~> 12.1"}
+      {:mcl_om, "~> 0.28 and >= 0.28.1"},
+      {:macula, "~> 12.2"}
     ]
   end
 end

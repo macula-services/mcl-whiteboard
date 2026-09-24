@@ -43,10 +43,9 @@ config :mcl_om,
   health_port: health_port,
   capability_topic: "_mesh.cap.",
   org: org,
-  # Informational labels the realm operator sees on this service's
-  # provider-authorization row (never trusted).
-  service_name: System.get_env("MCL_SERVICE_NAME", "mcl-whiteboard"),
-  box: System.get_env("MCL_BOX", "dev"),
+  # The claim's labels (service name, box) are not set here: mcl_om reads
+  # MCL_SERVICE_NAME and MCL_BOX itself, and falls back to this service's own
+  # name. A default here would label every unset box "dev" on the realm desk.
   realm: realm,
   # THE TRUST ANCHOR: the realm's public signing key, hex. mcl_om pins it as
   # macula:connect/2's realm_trust and refuses to start a pool without it,
@@ -54,12 +53,6 @@ config :mcl_om,
   # looking healthy. Public material; it does not belong in the secrets
   # volume. Unset in a local dev boot, which then runs with no mesh pool.
   realm_key: System.get_env("MCL_REALM_KEY", "")
-
-# barrel_docdb (mcl_om's read-model store) otherwise writes under a path
-# relative to the working directory: outside the data volume in a container,
-# so its databases would not survive a recreate, and into the checkout in dev.
-config :barrel_docdb,
-  data_dir: String.to_charlist(Path.join(data_dir, "barrel_docdb"))
 
 # THE PQ CRYPTO PROFILE, WITHOUT WHICH THIS NODE DOES NOT PEER. Without it the
 # macula app boots on the classical profile and every PQ station closes the

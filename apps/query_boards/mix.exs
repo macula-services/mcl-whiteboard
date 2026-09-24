@@ -36,8 +36,8 @@ defmodule QueryBoards.MixProject do
       {:guide_board_lifecycle, in_umbrella: true},
       # For the mesh queries: :mcl_om.mesh_handles/0 for the per-call reply
       # subscription, :mcl_om_pubsub for every publish.
-      {:mcl_om, "~> 0.26 and >= 0.26.5"},
-      {:macula, "~> 12.1"}
+      {:mcl_om, "~> 0.28 and >= 0.28.1"},
+      {:macula, "~> 12.2"}
     ]
   end
 end

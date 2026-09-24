@@ -94,15 +94,17 @@ producer's `topic/0` or `topics/0`.
 Each query has one fixed reply topic. The asker mints a `request_id`, and every
 answer echoes it, so the asker keeps only the replies to its own request.
 
-The service announces no RPC capability. Everything a peer does with a board
-travels over pubsub, because the board list and snapshot queries must reach every
-host, not one provider.
+Everything a peer does with a board travels over pubsub, because the board list
+and snapshot queries must reach every host, not one provider. The one procedure
+the service advertises is `mcl-whiteboard/info`, which mcl_om (0.28 and later)
+adds to every service: its name, version, org, node id, the macula and mcl_om it
+runs on, its health word and its procedures.
 
 ## Running locally
 
 Requires Elixir 1.18 on OTP 28.4.3 with an OpenSSL that serves ML-DSA (see
-`.tool-versions`), a Rust toolchain for macula's NIFs, and the snappy, zstd and
-lz4 development libraries for rocksdb. The simplest route is the pinned CI image,
+`.tool-versions`) and a Rust toolchain for macula's NIFs. The simplest route is
+the pinned CI image,
 `ghcr.io/macula-io/macula-ci-pq:ex118-20260923-1444`.
 
 ```bash
@@ -136,7 +138,7 @@ MCL_DATA_DIR=/tmp/mcl-whiteboard-dev mix phx.server
 | `MCL_DATA_DIR` | `/tmp/mcl-whiteboard-dev` | Board store and read models |
 | `MCL_IDENTITY_KEY_PATH` | `$MCL_DATA_DIR/identity/identity.key` | The node identity key, generated on first boot |
 | `MCL_HEALTH_PORT` / `MCL_HTTP_PORT` | `8491` / `4000` | Health endpoint and web UI |
-| `MCL_SERVICE_NAME` / `MCL_BOX` | `mcl-whiteboard` / `dev` | Labels the realm operator sees |
+| `MCL_SERVICE_NAME` / `MCL_BOX` | the service's name / none | Labels the realm operator sees; read by mcl_om |
 | `SECRET_KEY_BASE` | dev value | Signs the LiveView socket. Required in a release |
 | `RELEASE_COOKIE` | none | The box's own Erlang cookie. Required in a release; distribution is loopback-only |
 
