@@ -15,8 +15,8 @@ defmodule MclWhiteboard.InfoCapabilityTest do
     assert text(reply, :org) == "mcl-whiteboard"
     {:ok, vsn} = :application.get_key(:mcl_whiteboard, :vsn)
     assert text(reply, :version) == to_string(vsn)
-    assert text(reply, :mcl_om_version) =~ ~r/^0\.28\./
-    assert text(reply, :macula_version) =~ ~r/^12\.2\./
+    assert Version.match?(text(reply, :mcl_om_version), "~> 0.29 and >= 0.29.1")
+    assert Version.match?(text(reply, :macula_version), "~> 12.2")
     assert "mcl-whiteboard/info" in Enum.map(field(reply, :capabilities), &unwrap/1)
   end
 
