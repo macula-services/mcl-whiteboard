@@ -26,7 +26,7 @@ defmodule MclWhiteboard.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:mcl_om, "~> 0.29 and >= 0.29.1"},
+      {:mcl_om, "~> 0.31 and >= 0.31.1"},
       # The departments start BEFORE this app (they are its runtime deps),
       # so mcl_om:boot/1 finds their event handlers registered when it opens
       # the store, and Service.start/1 can declare subscriptions whose

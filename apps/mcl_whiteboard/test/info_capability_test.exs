@@ -15,7 +15,13 @@ defmodule MclWhiteboard.InfoCapabilityTest do
     assert text(reply, :org) == "mcl-whiteboard"
     {:ok, vsn} = :application.get_key(:mcl_whiteboard, :vsn)
     assert text(reply, :version) == to_string(vsn)
-    assert Version.match?(text(reply, :mcl_om_version), "~> 0.29 and >= 0.29.1")
+    # 0.31.1 carries the store floors every service inherits; reckon_evoq
+    # 2.7.2 reads snapshots back whole (2.7.0 rebuilt a reloaded aggregate
+    # from nothing).
+    assert Version.match?(text(reply, :mcl_om_version), "~> 0.31 and >= 0.31.1")
+    _ = :application.load(:reckon_evoq)
+    {:ok, reckon_evoq} = :application.get_key(:reckon_evoq, :vsn)
+    assert Version.match?(to_string(reckon_evoq), ">= 2.7.2")
     assert Version.match?(text(reply, :macula_version), "~> 12.2")
     assert "mcl-whiteboard/info" in Enum.map(field(reply, :capabilities), &unwrap/1)
   end
