@@ -9,9 +9,7 @@ needing anyone else's server.
 
 It runs on macula 12, post-quantum only, and stands on
 [`mcl_om`](https://github.com/macula-services/mcl-om), the substrate shared by every
-`macula-services/mcl-*` service. It replaces the archived
-[`hecate-whiteboard`](https://github.com/hecate-services/hecate-whiteboard), whose
-repository keeps the design notes and build history.
+`macula-services/mcl-*` service.
 
 ## What you can do
 
