@@ -150,7 +150,9 @@ resolved (`scripts/assert_release_matches_lock.sh`), and push.
 ## Image and deployment
 
 `ghcr.io/macula-services/mcl-whiteboard`: `:main` and `:<sha>` from `main`, and
-`:<X.Y.Z>` from a `vX.Y.Z` tag. There is no `:latest`. The `Containerfile` builds
+`:<X.Y.Z>` from a `vX.Y.Z` tag. Every pushed digest is signed keyless with cosign,
+with its SBOM and build provenance attested. `:latest` moves only on a `v*` tag, and
+only to the digest that was signed. The `Containerfile` builds
 on the same pinned image the gates ran in, and runs on `macula-pq-runtime` from
 the same build.
 

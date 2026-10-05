@@ -16,7 +16,7 @@
 
 services:
   mcl-whiteboard:
-    # A pinned version, never :latest: this repository does not publish one.
+    # A pinned, released version. :latest moves on every v* tag, so a pin keeps this box where you put it.
     image: ghcr.io/macula-services/mcl-whiteboard:${MCL_IMAGE_TAG:?set MCL_IMAGE_TAG to a released version}
     container_name: mcl-whiteboard
     restart: unless-stopped

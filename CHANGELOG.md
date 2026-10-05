@@ -5,6 +5,11 @@ Versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05
+
+The first release: a board hosted on one node, joined and drawn on from another
+across the mesh.
+
 ### Changed
 
 - On mcl_om 0.28 and macula 12.2, which mcl_om 0.28 requires. The service now
@@ -38,3 +43,6 @@ Versioning: [SemVer](https://semver.org/).
   checked against the dependency versions the tests resolved.
 - Erlang distribution on loopback only, with a cookie the box supplies; a release
   refuses to start without `RELEASE_COOKIE` or `SECRET_KEY_BASE`.
+- Every pushed image digest is signed keyless with cosign, with its SBOM (SPDX) and
+  SLSA provenance attested. `:latest` moves only on a `v*` tag, to the signed
+  digest.
