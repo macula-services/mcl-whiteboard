@@ -7,7 +7,7 @@ on other nodes find that host's boards over the mesh and draw on them live. If t
 host goes offline, its boards go with it. That is the deliberate trade for not
 needing anyone else's server.
 
-It runs on macula 12, post-quantum only, and stands on
+It runs on macula 15 (wire 1.0), post-quantum only, and stands on
 [`mcl_om`](https://github.com/macula-services/mcl-om), the substrate shared by every
 `macula-services/mcl-*` service.
 
@@ -37,10 +37,12 @@ An Elixir/Phoenix umbrella of six OTP applications, sliced vertically:
 | `mcl_whiteboard` | service | The `mcl_om_service` implementation: identity, realm, health, the board store and every standing mesh subscription |
 | `mcl_whiteboard_web` | UI | Phoenix LiveView: the board picker and the canvas (HTML5 Canvas, no npm dependencies) |
 
-The departments start before `mcl_whiteboard`, which runs `:mcl_om.boot/1`. That
-call opens the board store (reckon-db through evoq) and declares the service's
-mesh subscriptions (`MclWhiteboard.Service.subscriptions/0`). mcl_om then keeps
-those subscriptions running, and re-checks them every 30 seconds.
+The departments start before `mcl_whiteboard`, whose `start/2` opens the board
+store (reckon-db through evoq, `MclWhiteboard.Service.event_store/0`) and only
+then runs `:mcl_om.boot/1`, which declares the service's mesh subscriptions
+(`MclWhiteboard.Service.subscriptions/0`). mcl_om opens no store of its own
+since 0.35.0, so the store is up before anything else in the service runs.
+mcl_om keeps those subscriptions running, and re-checks them every 30 seconds.
 
 ### Design decisions
 
