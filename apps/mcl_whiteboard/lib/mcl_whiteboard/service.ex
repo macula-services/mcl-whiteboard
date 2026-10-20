@@ -79,24 +79,41 @@ defmodule MclWhiteboard.Service do
       ]
   end
 
-  # CMD/PRJ wiring: exporting both callbacks makes mcl_om:boot/1 start
-  # reckon-db + the evoq subscription before start/1 runs. Requires the
-  # evoq adapter block in config/runtime.exs, or evoq dispatch crashes on
+  # CMD/PRJ wiring: THE STORE THIS SERVICE OWNS, described here and opened by
+  # MclWhiteboard.Application in start/2 BEFORE mcl_om:boot/1, so it and its
+  # evoq subscription are up before Service.start/1 runs. Requires the evoq
+  # adapter block in config/runtime.exs, or evoq dispatch crashes on
   # {not_configured, event_store_adapter}.
-  @impl true
-  def store_id, do: :board_store
-
+  #
+  # ⚠ NOT store_id/0 AND data_dir/0. That pair was the pre-0.35 contract, when
+  # mcl_om:boot/1 opened a store a service exported the two for. It opens none
+  # since 0.35.0 (mcl-om#10) and only logs a warning naming them, so a service
+  # that still carries the pair compiles clean, boots green and has NO store:
+  # every board is lost at its first touch.
+  #
+  # The directory MUST be a charlist, not an Elixir binary. The dets/ra layer
+  # under reckon-db rejects a binary `file` option with {badarg, ...}: an
+  # Elixir binary here survives filename:join/2 and then crashes deep inside
+  # ra's directory setup with dets:open_file/2 {badarg, ...}.
+  #
   # Same env var and same default as config/runtime.exs -- two independent
   # reads of MCL_DATA_DIR, so they must agree.
-  #
-  # MUST be a charlist, not an Elixir binary. The behaviour's -callback
-  # spec says string() -- Erlang's string() means [char()], not binary().
-  # An Elixir binary here survives filename:join/2 but then crashes deep
-  # inside ra's directory setup with dets:open_file/2 {badarg, ...} on the
-  # `file` option, since dets rejects a binary path outright.
-  @impl true
-  def data_dir,
-    do: String.to_charlist(System.get_env("MCL_DATA_DIR", "/tmp/mcl-whiteboard-dev"))
+  @doc """
+  The reckon-db store this service owns.
+
+  The id is named twice, here and as `store_id` in the evoq block of
+  `config/runtime.exs`; a test compares them.
+  """
+  @spec event_store() :: map()
+  def event_store do
+    %{
+      id: :board_store,
+      dir: String.to_charlist(System.get_env("MCL_DATA_DIR", "/tmp/mcl-whiteboard-dev")),
+      indexes: [],
+      mode: :single,
+      integrity: :disabled
+    }
+  end
 
   defp version do
     {:ok, vsn} = :application.get_key(:mcl_whiteboard, :vsn)

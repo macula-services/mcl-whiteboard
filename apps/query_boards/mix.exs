@@ -36,8 +36,10 @@ defmodule QueryBoards.MixProject do
       {:guide_board_lifecycle, in_umbrella: true},
       # For the mesh queries: :mcl_om.mesh_handles/0 for the per-call reply
       # subscription, :mcl_om_pubsub for every publish.
-      {:mcl_om, "~> 0.28 and >= 0.28.1"},
-      {:macula, "~> 12.2"}
+      # Wire 1.0, the macula-15 line (mcl-om#27): the major moves with the
+      # wire, so this is taken on purpose, with the facade that declares it.
+      {:mcl_om, "~> 1.2"},
+      {:macula, "~> 15.6"}
     ]
   end
 end

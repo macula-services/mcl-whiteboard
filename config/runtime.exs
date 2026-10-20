@@ -31,7 +31,7 @@ config :mcl_whiteboard,
 config :mcl_om,
   # Charlists, not Elixir binaries: these are file paths, and the dets/ra
   # layer under reckon-db rejects a binary `file` option with {badarg, ...}.
-  # See MclWhiteboard.Service.data_dir/0 for the fuller account.
+  # See MclWhiteboard.Service.event_store/0 for the fuller account.
   #
   # The service's own puzzle-hardened pq_hybrid node key. A MISSING file is
   # generated and persisted on first boot; the node id survives a container
@@ -61,10 +61,13 @@ config :mcl_om,
 config :macula,
   crypto_profile: :pq_hybrid
 
-# MANDATORY because MclWhiteboard.Service exports store_id/0.
-# mcl_om:boot/1 starts the store AND a per-store evoq subscription,
-# which crashes on {not_configured, event_store_adapter} if this block is
-# absent -- see mcl_om_store's own module header.
+# MANDATORY because this service owns a store: MclWhiteboard.EventStore starts
+# the per-store evoq subscription in MclWhiteboard.Application.start/2 before
+# mcl_om:boot/1, and that subscription reads the global log through evoq, which
+# crashes on {not_configured, event_store_adapter} without this block. evoq
+# starts as a release-boot application before any service's start/2 runs, so
+# nothing can inject it later. The store id here and
+# MclWhiteboard.Service.event_store/0's id must agree; a test compares them.
 config :evoq,
   event_store_adapter: :reckon_evoq_adapter,
   subscription_adapter: :reckon_evoq_adapter,

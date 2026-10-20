@@ -35,8 +35,9 @@ defmodule ProjectBoards.MixProject do
       # The facts this app's mesh subscribers consume are produced by
       # guide_board_lifecycle, which owns their topics.
       {:guide_board_lifecycle, in_umbrella: true},
-      # :macula_subscriber is the behaviour the mesh subscribers implement.
-      {:macula, "~> 12.2"}
+      # :macula_subscriber is the behaviour the mesh subscribers implement,
+      # on wire 1.0 (macula 15), the line every app here now shares.
+      {:macula, "~> 15.6"}
     ]
   end
 end

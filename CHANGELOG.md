@@ -5,6 +5,24 @@ Versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Wire 1.0: `mcl_om` 1.2 and macula 15.6, the line the fleet runs since
+  the flag day (2026-10-19).** A wire 1.0 node neither reads a 14 node's
+  frames nor completes a handshake with it, so this is taken on purpose: the
+  `~> 0.x` floor could not float here on its own (mcl-om#27). No call site
+  changed.
+- **The service opens its own reckon-db store before it boots.** `mcl_om`
+  opens no store since 0.35.0 (mcl-om#10): a service module exporting
+  `store_id/0` and `data_dir/0` no longer gets one, and only a warning at
+  boot names the callbacks. `MclWhiteboard.Application.start/2` now opens the
+  store first (`MclWhiteboard.EventStore`), waits until reckon-db lists it,
+  and starts the per-store evoq subscription; the store's id, directory,
+  indexes, mode and integrity live in `MclWhiteboard.Service.event_store/0`,
+  the old callback pair is gone, and the app declares `reckon_db`, `evoq` and
+  `reckon_evoq` itself. Without this the bump compiles clean, boots green and
+  has no store at all, losing every board at its first touch.
+
 ## [0.1.0] - 2026-10-05
 
 The first release: a board hosted on one node, joined and drawn on from another

@@ -33,8 +33,10 @@ defmodule GuideBoardLifecycle.MixProject do
       {:reckon_gater, "~> 3.11"},
       # The mesh emitters publish through :mcl_om_pubsub; macula for
       # :macula_topic (WhiteboardTopic) and the :macula_subscriber behaviour.
-      {:mcl_om, "~> 0.31 and >= 0.31.1"},
-      {:macula, "~> 12.2"}
+      # Wire 1.0, the macula-15 line (mcl-om#27): the major moves with the
+      # wire, so this is taken on purpose, with the facade that declares it.
+      {:mcl_om, "~> 1.2"},
+      {:macula, "~> 15.6"}
     ]
   end
 end
