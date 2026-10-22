@@ -82,13 +82,14 @@
 <text class="t-desc" x="406" y="556">MACULA_STATION_SEEDS carry every fact,</text>
 <text class="t-desc" x="406" y="572">write relay and query (QUIC); the</text>
 <text class="t-desc" x="406" y="588">DHT holds the node's advertisement.</text>
-<rect class="b-ext" x="740" y="470" width="300" height="136" rx="10"/>
+<rect class="b-ext" x="740" y="470" width="300" height="152" rx="10"/>
 <text class="t-name" x="756" y="498">Another host's node</text>
 <text class="t-type" x="756" y="516">[External system]</text>
 <text class="t-desc" x="756" y="540">Another box running this service,</text>
 <text class="t-desc" x="756" y="556">and the authority for its boards.</text>
-<text class="t-desc" x="756" y="572">The list and snapshot queries reach</text>
-<text class="t-desc" x="756" y="588">every host; only the owner answers.</text>
+<text class="t-desc" x="756" y="572">The list query is answered by every</text>
+<text class="t-desc" x="756" y="588">host with boards; the snapshot query</text>
+<text class="t-desc" x="756" y="604">only by that board's host.</text>
 <path class="edge" d="M190 166V200H430V230" marker-end="url(#a)"/>
 <text class="t-rel" x="198" y="180">opens the canvas on port 4000</text>
 <path class="edge" d="M950 166V200H670V230" marker-end="url(#a)"/>

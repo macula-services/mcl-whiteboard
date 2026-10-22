@@ -148,9 +148,10 @@ def context():
     d.box("b-mac", 390, 470, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
           ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
            "write relay and query (QUIC); the", "DHT holds the node's advertisement."])
-    d.box("b-ext", 740, 470, 300, 136, "Another host's node", "[External system]",
+    d.box("b-ext", 740, 470, 300, 152, "Another host's node", "[External system]",
           ["Another box running this service,", "and the authority for its boards.",
-           "The list and snapshot queries reach", "every host; only the owner answers."])
+           "The list query is answered by every", "host with boards; the snapshot query",
+           "only by that board's host."])
 
     d.edge("M190 166V200H430V230")
     d.text("t-rel", 198, 180, "opens the canvas on port 4000")
@@ -170,12 +171,12 @@ def context():
 
 
 def components():
-    d = Diagram("c4-components.svg", "mcl-whiteboard components", 1160, 1366)
+    d = Diagram("c4-components.svg", "mcl-whiteboard components", 1160, 1382)
     d.bound(16, 40, 1128, 886, "mcl-whiteboard [Container: one OTP release, six apps]")
 
     d.box("b-cmp", 32, 70, 540, 120, "MclWhiteboard.Application", "[OTP application]",
           ["Opens the board store from MclWhiteboard.Service.event_store/0, then calls",
-           ":mcl_om.boot/1. The five departments are runtime deps, so their projections",
+           ":mcl_om.boot/1. The four other apps are runtime deps, so their projections",
            "and event handlers are registered before the store subscription delivers."], code=True)
     d.box("b-sys", 32, 238, 540, 136, "MclWhiteboard.Service", "[mcl_om_service behaviour]",
           ["The six callbacks plus subscriptions/0, the whole desired set of standing",
@@ -188,9 +189,9 @@ def components():
     d.box("b-cmp", 32, 590, 540, 152, "MclWhiteboardWeb", "[Phoenix LiveView, phoenix ~> 1.8, bandit ~> 1.12]",
           ["The Endpoint on MCL_HTTP_PORT (4000) and the Router: / is the default board,",
            "/board/:board_id is any board, local or remote, and /boards is the picker.",
-           "BoardLive runs the HTML5 Canvas with no npm dependencies, and BoardsLive",
-           "lists this node's boards. A LiveView reaches the backend only through the",
-           "query desks and evoq dispatch, never through a department's modules."], code=True)
+           "BoardLive runs the HTML5 Canvas with no npm dependencies; BoardsLive lists",
+           "this node's boards. They read through the query desks, call the CMD desks'",
+           "Maybe modules and TrackPresence.Roster, and follow Phoenix.PubSub for updates."], code=True)
 
     d.box("b-cmp", 588, 70, 540, 136, "MclWhiteboard.EventStore", "[reckon-db store, single node]",
           ["Opened by MclWhiteboard.Application before :mcl_om.boot/1. Id board_store is",
@@ -243,14 +244,15 @@ def components():
            "its store subscription, and the store",
            "the projections replay from. macula 16,",
            "wire 1.0, post-quantum only."], code=True)
-    d.box("b-ext", 40, 1126, 1080, 120, "The host environment", "[read by config/runtime.exs; both volumes are in the compose file]",
-          ["MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_PORT (8491), MCL_HTTP_PORT (4000), MCL_REALM_NAME, MCL_REALM_KEY, MACULA_STATION_SEEDS,",
-           "MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and MCL_BOX, plus SECRET_KEY_BASE and RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard",
-           "holds the board store, and /etc/mcl/secrets holds identity.key, which the realm's delegation is bound to."], code=True)
+    d.box("b-ext", 40, 1126, 1080, 136, "The host environment", "[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]",
+          ["config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_PORT (8491), MCL_HTTP_PORT (4000), MCL_REALM_NAME, MCL_REALM_KEY",
+           "and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and MCL_BOX at boot; the release's env.sh",
+           "requires RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard holds the board store, /etc/mcl/secrets holds identity.key, which the realm's",
+           "delegation is bound to."], code=True)
     d.edge("M1128 160H1140V926H950V958"); d.text("t-rel", 1120, 222, "events in and out, through evoq", anchor="end")
-    d.text("t-desc", 40, 1272, "The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every")
-    d.text("t-desc", 40, 1290, "standing mesh subscription. A start-up ordering test holds that order, and a test fails any event handler that declares no replay policy.")
-    d.legend(1326)
+    d.text("t-desc", 40, 1288, "The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every")
+    d.text("t-desc", 40, 1306, "standing mesh subscription. A start-up ordering test holds that order, and a test fails any event handler that declares no replay policy.")
+    d.legend(1342)
     d.write()
 
 
