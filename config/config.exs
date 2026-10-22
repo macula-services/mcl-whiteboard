@@ -17,9 +17,9 @@ config :mcl_whiteboard_web, MclWhiteboardWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   pubsub_server: MclWhiteboardWeb.PubSub,
   live_view: [signing_salt: "hwb_live_view_salt"],
-  # No fronting domain yet -- this is reached directly at
-  # beam01.lab:PORT/beam02.lab:PORT (or localhost in dev), so there's no
-  # single fixed :url host to check the socket's Origin against.
+  # No fronting domain yet -- this is reached directly at a host:port (localhost
+  # in dev), so there's no single fixed :url host to check the socket's Origin
+  # against.
   # check_origin: false is a deliberate simplification for this
   # walking-skeleton phase (single-user tool, no auth/multi-tenancy yet),
   # not an oversight -- revisit once this sits behind a real host/domain.

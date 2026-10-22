@@ -95,10 +95,14 @@ Each query has one fixed reply topic. The asker mints a `request_id`, and every
 answer echoes it, so the asker keeps only the replies to its own request.
 
 Everything a peer does with a board travels over pubsub, because the board list
-and snapshot queries must reach every host, not one provider. The one procedure
-the service advertises is `mcl-whiteboard/info`, which mcl_om (0.28 and later)
-adds to every service: its name, version, org, node id, the macula and mcl_om it
-runs on, its health word and its procedures.
+and snapshot queries must reach every host, not one provider. The service serves
+no procedure of its own, so `capabilities/0` is empty. `mcl_om` adds
+`mcl-whiteboard/info` and `mcl-whiteboard/get_limits` to every service, both
+open. `info` answers with the service's name, version and description, its org
+and claim labels, node id, the macula and mcl_om versions, uptime, its health
+word and the procedures it advertises; `get_limits` answers with the inbound
+guard's limits and current-window stats, for a named procedure or for the whole
+declared set.
 
 ## Running locally
 
