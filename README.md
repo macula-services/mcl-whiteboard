@@ -7,7 +7,7 @@ on other nodes find that host's boards over the mesh and draw on them live. If t
 host goes offline, its boards go with it. That is the deliberate trade for not
 needing anyone else's server.
 
-It runs on macula 15 (wire 1.0), post-quantum only, and stands on
+It runs on macula 16 (wire 1.0), post-quantum only, and stands on
 [`mcl_om`](https://github.com/macula-services/mcl-om), the substrate shared by every
 `macula-services/mcl-*` service.
 
