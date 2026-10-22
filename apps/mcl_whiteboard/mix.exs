@@ -26,12 +26,12 @@ defmodule MclWhiteboard.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # 1.0 is the macula-15 line, wire 1.0, the fleet's since the flag day
+      # 1.4 is the macula-16 line on wire 1.0, the fleet's since the flag day
       # (2026-10-19). The major moves with the wire so no ~> 0.x service
-      # floats onto macula 15 by itself (mcl-om#27); a 1.0 node neither reads
+      # floats onto a new wire by itself (mcl-om#27); a 1.0 node neither reads
       # a 14 node's frames nor handshakes with it, so this is taken on
       # purpose.
-      {:mcl_om, "~> 1.2"},
+      {:mcl_om, "~> 1.4"},
       # THIS SERVICE'S OWN EVENT STORE. mcl_om opens no store and starts no
       # reckon-db or evoq application since 0.35.0 (mcl-om#10):
       # MclWhiteboard.Application opens the store in start/2 before
