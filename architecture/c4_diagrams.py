@@ -142,9 +142,10 @@ def context():
           ["Hosts boards and serves the canvas", "on 4000, publishes every board and",
            "shape fact, and relays a remote", "peer's writes to the board's host.",
            "One release, six OTP apps."])
-    d.box("b-mac", 40, 470, 300, 120, "macula-realm", "[Macula infrastructure]",
-          ["Endorses the node's identity key and", "grants the scope mcl-whiteboard;",
-           "no own procedure is advertised."])
+    d.box("b-mac", 40, 470, 300, 152, "macula-realm", "[Macula infrastructure]",
+          ["Endorses the node's identity key and", "grants the scope mcl-whiteboard. The",
+           "procedures are mcl_om's", "mcl-whiteboard/info and",
+           "mcl-whiteboard/get_limits, both open."])
     d.box("b-mac", 390, 470, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
           ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
            "write relay and query (QUIC); the", "DHT holds the node's advertisement."])
@@ -164,8 +165,9 @@ def context():
     d.text("t-rel", 558, 420, "write relays and queries")
     d.edge("M710 300H890V470")
     d.text("t-rel", 718, 292, "queries reach every host")
-    d.text("t-desc", 40, 640, "Nothing outside the mesh is called: the board list and the snapshots come from other hosts over pubsub, and the only")
-    d.text("t-desc", 40, 658, "procedure is mcl-whiteboard/info, which mcl_om adds to every service.")
+    d.text("t-desc", 40, 640, "Nothing outside the mesh is called: the board list and the snapshots come from other hosts over pubsub.")
+    d.text("t-desc", 40, 658, "The service serves no procedure of its own, and capabilities/0 is empty. mcl_om adds mcl-whiteboard/info and")
+    d.text("t-desc", 40, 676, "mcl-whiteboard/get_limits to every service, both open.")
     d.legend(716, boundary=False)
     d.write()
 
