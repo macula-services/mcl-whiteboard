@@ -74,7 +74,7 @@
 <text class="t-type" x="56" y="516">[Macula infrastructure]</text>
 <text class="t-desc" x="56" y="540">Endorses the node's identity key and</text>
 <text class="t-desc" x="56" y="556">grants the scope mcl-whiteboard;</text>
-<text class="t-desc" x="56" y="572">no procedure is advertised.</text>
+<text class="t-desc" x="56" y="572">no own procedure is advertised.</text>
 <rect class="b-mac" x="390" y="470" width="320" height="136" rx="10"/>
 <text class="t-name" x="406" y="498">Macula stations, mesh DHT</text>
 <text class="t-type" x="406" y="516">[Macula infrastructure]</text>

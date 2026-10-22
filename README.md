@@ -95,9 +95,8 @@ Each query has one fixed reply topic. The asker mints a `request_id`, and every
 answer echoes it, so the asker keeps only the replies to its own request.
 
 Everything a peer does with a board travels over pubsub, because the board list
-and snapshot queries must reach every host, not one provider. The one procedure
-the service advertises is `mcl-whiteboard/info`, which mcl_om (0.28 and later)
-adds to every service: its name, version, org, node id, the macula and mcl_om it
+and snapshot queries must reach every host, not one provider. The procedures it advertises
+are the ones mcl_om adds for every service, `info` and `get_limits`: its name, version, org, node id, the macula and mcl_om it
 runs on, its health word and its procedures.
 
 ## Running locally

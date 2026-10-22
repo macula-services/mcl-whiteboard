@@ -144,7 +144,7 @@ def context():
            "One release, six OTP apps."])
     d.box("b-mac", 40, 470, 300, 120, "macula-realm", "[Macula infrastructure]",
           ["Endorses the node's identity key and", "grants the scope mcl-whiteboard;",
-           "no procedure is advertised."])
+           "no own procedure is advertised."])
     d.box("b-mac", 390, 470, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
           ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
            "write relay and query (QUIC); the", "DHT holds the node's advertisement."])

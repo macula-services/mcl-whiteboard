@@ -6,8 +6,8 @@ made of, without reading it.*
 **Status: six apps in one release, no central server.** A host runs the service
 on their own node and serves the canvas on 4000. Boards are hosted by the node
 that created them, everything a peer does with a board travels over pubsub, and
-the only procedure is `mcl-whiteboard/info`, which `mcl_om` adds to every
-service.
+the procedures it advertises are the two `mcl_om` adds for every service,
+`info` and `get_limits`.
 
 ## Level 1: system context
 
@@ -18,7 +18,7 @@ service.
 | mcl-whiteboard | In scope | Hosts boards, serves the canvas on 4000, publishes every board and shape fact, and relays a remote peer's writes to the board's host. One OTP release, six apps, one container |
 | Board host | Person | Runs the service on their own node and opens `/boards` in a browser on port 4000. Their node is the authority for the boards it hosts |
 | Collaborator | Person | Finds a board over the mesh, gets a snapshot, then live updates, and draws on it; the writes are relayed to the host |
-| macula-realm | Macula infrastructure | Endorses the node's identity key and grants the scope `mcl-whiteboard`. No procedure is advertised, so no provider authorization is asked for |
+| macula-realm | Macula infrastructure | Endorses the node's identity key and grants the scope `mcl-whiteboard`. The only procedures advertised are the two `mcl_om` adds, both open, so no provider authorization is asked for |
 | Macula stations, mesh DHT | Macula infrastructure | The pinned seeds in `MACULA_STATION_SEEDS` carry every fact, write relay and query over QUIC; the DHT holds the node's advertisement |
 | Another host's node | External system | Another box running this service, and the authority for its boards. The list and snapshot queries reach every host; only the owner answers |
 
