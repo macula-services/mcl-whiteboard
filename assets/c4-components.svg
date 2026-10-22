@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 1366" role="img" aria-label="mcl-whiteboard components">
+<title>mcl-whiteboard components</title>
+<style>
+.t-name { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; }
+.t-desc { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 12.5px; }
+.t-rel { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 11.5px; paint-order: stroke; stroke-width: 4px; stroke-linejoin: round; }
+.t-code { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13px; font-weight: 600; }
+.t-type { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+.t-bound { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; }
+.t-leg { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 12px; }
+.edge { fill: none; stroke-width: 1.25; }
+.edge-later { fill: none; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.bg { fill: #FFFFFF; }
+.b-sys { fill: #F5E9CC; stroke: #A56F0A; stroke-width: 2; }
+.b-per { fill: #E3EBF2; stroke: #3B5B7A; stroke-width: 1.25; }
+.b-mac { fill: #E6E4EE; stroke: #5E5A78; stroke-width: 1.25; }
+.b-ext { fill: #ECEFED; stroke: #8A9791; stroke-width: 1.25; }
+.b-cmp { fill: #FFFFFF; stroke: #8A9791; stroke-width: 1.25; }
+.b-later { fill: none; stroke: #8A9791; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.bound { fill: none; stroke: #B3BDB8; stroke-width: 1; }
+.head { fill: #3B5B7A; }
+.t-name, .t-code { fill: #16201D; }
+.t-type, .t-bound, .t-leg { fill: #66736E; }
+.t-desc { fill: #34413C; }
+.t-rel { fill: #66736E; stroke: #FFFFFF; }
+.edge, .edge-later { stroke: #8A9791; }
+.arrowhead { fill: #8A9791; }
+@media (prefers-color-scheme: dark) {
+.bg { fill: #171F1C; }
+.b-sys { fill: #3A2E13; stroke: #E3AA3C; }
+.b-per { fill: #1D2A36; stroke: #8EB4D8; }
+.b-mac { fill: #26243A; stroke: #A9A4C8; }
+.b-ext { fill: #1C2421; stroke: #7D8B85; }
+.b-cmp { fill: #171F1C; stroke: #7D8B85; }
+.b-later { stroke: #7D8B85; }
+.bound { stroke: #4A5752; }
+.head { fill: #8EB4D8; }
+.t-name, .t-code { fill: #E6ECE9; }
+.t-type, .t-bound, .t-leg { fill: #93A09A; }
+.t-desc { fill: #C3CDC8; }
+.t-rel { fill: #93A09A; stroke: #171F1C; }
+.edge, .edge-later { stroke: #7D8B85; }
+.arrowhead { fill: #7D8B85; }
+}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1160" height="1366"/>
+<rect class="bound" x="16" y="40" width="1128" height="886" rx="12"/>
+<text class="t-bound" x="32" y="62">mcl-whiteboard [Container: one OTP release, six apps]</text>
+<rect class="b-cmp" x="32" y="70" width="540" height="120" rx="10"/>
+<text class="t-code" x="48" y="98">MclWhiteboard.Application</text>
+<text class="t-type" x="48" y="116">[OTP application]</text>
+<text class="t-desc" x="48" y="140">Opens the board store from MclWhiteboard.Service.event_store/0, then calls</text>
+<text class="t-desc" x="48" y="156">:mcl_om.boot/1. The five departments are runtime deps, so their projections</text>
+<text class="t-desc" x="48" y="172">and event handlers are registered before the store subscription delivers.</text>
+<rect class="b-sys" x="32" y="238" width="540" height="136" rx="10"/>
+<text class="t-code" x="48" y="266">MclWhiteboard.Service</text>
+<text class="t-type" x="48" y="284">[mcl_om_service behaviour]</text>
+<text class="t-desc" x="48" y="308">The six callbacks plus subscriptions/0, the whole desired set of standing</text>
+<text class="t-desc" x="48" y="324">mesh subscriptions, which mcl_om re-checks every 30 s. capabilities/0 is</text>
+<text class="t-desc" x="48" y="340">empty: everything a peer does with a board goes over pubsub, not RPC. Its</text>
+<text class="t-desc" x="48" y="356">scope is mcl-whiteboard, and health/0 is green while the tree is up.</text>
+<rect class="b-cmp" x="32" y="422" width="540" height="104" rx="10"/>
+<text class="t-code" x="48" y="450">MclWhiteboard.Supervisor</text>
+<text class="t-type" x="48" y="468">[supervisor, one_for_one]</text>
+<text class="t-desc" x="48" y="492">No children, and that is the honest shape: the departments are sibling OTP</text>
+<text class="t-desc" x="48" y="508">apps with their own trees, and evoq starts board aggregates on demand.</text>
+<rect class="b-cmp" x="32" y="590" width="540" height="152" rx="10"/>
+<text class="t-code" x="48" y="618">MclWhiteboardWeb</text>
+<text class="t-type" x="48" y="636">[Phoenix LiveView, phoenix ~&gt; 1.8, bandit ~&gt; 1.12]</text>
+<text class="t-desc" x="48" y="660">The Endpoint on MCL_HTTP_PORT (4000) and the Router: / is the default board,</text>
+<text class="t-desc" x="48" y="676">/board/:board_id is any board, local or remote, and /boards is the picker.</text>
+<text class="t-desc" x="48" y="692">BoardLive runs the HTML5 Canvas with no npm dependencies, and BoardsLive</text>
+<text class="t-desc" x="48" y="708">lists this node's boards. A LiveView reaches the backend only through the</text>
+<text class="t-desc" x="48" y="724">query desks and evoq dispatch, never through a department's modules.</text>
+<rect class="b-cmp" x="588" y="70" width="540" height="136" rx="10"/>
+<text class="t-code" x="604" y="98">MclWhiteboard.EventStore</text>
+<text class="t-type" x="604" y="116">[reckon-db store, single node]</text>
+<text class="t-desc" x="604" y="140">Opened by MclWhiteboard.Application before :mcl_om.boot/1. Id board_store is</text>
+<text class="t-desc" x="604" y="156">also named as store_id in the evoq block of config/runtime.exs, and a test</text>
+<text class="t-desc" x="604" y="172">compares them. The directory is a charlist, because the dets/ra layer below</text>
+<text class="t-desc" x="604" y="188">reckon_db rejects a binary. Mode single, no indexes, integrity disabled.</text>
+<rect class="b-cmp" x="588" y="238" width="540" height="152" rx="10"/>
+<text class="t-code" x="604" y="266">GuideBoardLifecycle</text>
+<text class="t-type" x="604" y="284">[CMD app, event sourced]</text>
+<text class="t-desc" x="604" y="308">board_aggregate and one desk per command: initiate_board, host_board,</text>
+<text class="t-desc" x="604" y="324">rename_board, archive_board, unarchive_board, draw_stroke, draw_geometry,</text>
+<text class="t-desc" x="604" y="340">place_sticky, place_text, move_shape, remove_shape and leave_board. The mesh</text>
+<text class="t-desc" x="604" y="356">emitters (BoardLifecycleV1ToMesh, ShapeLifecycleV1ToMesh, PeerDepartedV1ToMesh)</text>
+<text class="t-desc" x="604" y="372">and the write-relay answerers, with WhiteboardTopic naming every topic.</text>
+<rect class="b-cmp" x="588" y="422" width="540" height="136" rx="10"/>
+<text class="t-code" x="604" y="450">ProjectBoards</text>
+<text class="t-type" x="604" y="468">[PRJ app]</text>
+<text class="t-desc" x="604" y="492">ProjectBoards.Store holds two ETS read models, boards and board_shapes.</text>
+<text class="t-desc" x="604" y="508">BoardLifecycleToBoards and ShapeLifecycleToBoardShapes rebuild them from the</text>
+<text class="t-desc" x="604" y="524">store, and the mesh subscribers absorb other hosts' facts. It also starts</text>
+<text class="t-desc" x="604" y="540">MclWhiteboardWeb.PubSub, so the registry exists before any event arrives.</text>
+<rect class="b-cmp" x="588" y="590" width="540" height="152" rx="10"/>
+<text class="t-code" x="604" y="618">QueryBoards</text>
+<text class="t-type" x="604" y="636">[QRY app]</text>
+<text class="t-desc" x="604" y="660">get_board_snapshot_by_id, list_hosted_boards and list_archived_boards read</text>
+<text class="t-desc" x="604" y="676">the ETS models. get_board_snapshot_by_id_over_mesh and list_boards_over_mesh</text>
+<text class="t-desc" x="604" y="692">ask the mesh and take the host's answer, echoed by request_id; the answerers</text>
+<text class="t-desc" x="604" y="708">are the queries' other half. The snapshot carries as_of_version, so a shape</text>
+<text class="t-desc" x="604" y="724">that raced it over the live subscription is not applied twice.</text>
+<rect class="b-cmp" x="588" y="774" width="540" height="120" rx="10"/>
+<text class="t-code" x="604" y="802">TrackPresence</text>
+<text class="t-type" x="604" y="820">[no department, deliberately not event sourced]</text>
+<text class="t-desc" x="604" y="844">Roster keeps the live cursors in ETS, Sweep ages them out, and</text>
+<text class="t-desc" x="604" y="860">CursorMeshSubscriber and PeerDepartedMeshSubscriber take other hosts' facts.</text>
+<text class="t-desc" x="604" y="876">Ephemeral by design: a cursor is never stored.</text>
+<path class="edge" d="M200 190V238" marker-end="url(#a)"/>
+<text class="t-rel" x="208" y="230">boots with</text>
+<path class="edge" d="M200 374V422" marker-end="url(#a)"/>
+<text class="t-rel" x="208" y="414">start/1 starts</text>
+<path class="edge" d="M572 132H588" marker-end="url(#a)"/>
+<text class="t-rel" x="570" y="124" text-anchor="end">opens first</text>
+<path class="edge" d="M572 300H588" marker-end="url(#a)"/>
+<text class="t-rel" x="570" y="292" text-anchor="end">declares its subscribers</text>
+<path class="edge" d="M572 652H588" marker-end="url(#a)"/>
+<text class="t-rel" x="570" y="644" text-anchor="end">reads through them</text>
+<path class="edge" d="M740 238V206" marker-end="url(#a)"/>
+<text class="t-rel" x="748" y="230">appends its events</text>
+<path class="edge" d="M740 390V422" marker-end="url(#a)"/>
+<text class="t-rel" x="748" y="414">its events are projected</text>
+<path class="edge" d="M740 558V590" marker-end="url(#a)"/>
+<text class="t-rel" x="748" y="582">every QRY desk reads through it</text>
+<rect class="b-mac" x="32" y="958" width="352" height="136" rx="10"/>
+<text class="t-code" x="48" y="986">mcl_om</text>
+<text class="t-type" x="48" y="1004">[library, ~&gt; 1.4]</text>
+<text class="t-desc" x="48" y="1028">boot/1: joins the realm, dials the</text>
+<text class="t-desc" x="48" y="1044">pinned stations, serves /health on</text>
+<text class="t-desc" x="48" y="1060">MCL_HEALTH_PORT, and keeps this</text>
+<text class="t-desc" x="48" y="1076">service's standing subscriptions.</text>
+<rect class="b-mac" x="404" y="958" width="352" height="136" rx="10"/>
+<text class="t-code" x="420" y="986">macula</text>
+<text class="t-type" x="420" y="1004">[library, ~&gt; 16.0, wire 1.0]</text>
+<text class="t-desc" x="420" y="1028">QUIC transport, the pubsub the</text>
+<text class="t-desc" x="420" y="1044">emitters and the queries use, and</text>
+<text class="t-desc" x="420" y="1060">the signed records the mesh DHT</text>
+<text class="t-desc" x="420" y="1076">holds.</text>
+<rect class="b-cmp" x="776" y="958" width="352" height="136" rx="10"/>
+<text class="t-code" x="792" y="986">evoq / reckon_evoq / reckon_db</text>
+<text class="t-type" x="792" y="1004">[libraries, ~&gt; 1.24 / ~&gt; 2.8 / ~&gt; 5.11]</text>
+<text class="t-desc" x="792" y="1028">The board aggregate's event sourcing,</text>
+<text class="t-desc" x="792" y="1044">its store subscription, and the store</text>
+<text class="t-desc" x="792" y="1060">the projections replay from. macula 16,</text>
+<text class="t-desc" x="792" y="1076">wire 1.0, post-quantum only.</text>
+<rect class="b-ext" x="40" y="1126" width="1080" height="120" rx="10"/>
+<text class="t-code" x="56" y="1154">The host environment</text>
+<text class="t-type" x="56" y="1172">[read by config/runtime.exs; both volumes are in the compose file]</text>
+<text class="t-desc" x="56" y="1196">MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_PORT (8491), MCL_HTTP_PORT (4000), MCL_REALM_NAME, MCL_REALM_KEY, MACULA_STATION_SEEDS,</text>
+<text class="t-desc" x="56" y="1212">MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and MCL_BOX, plus SECRET_KEY_BASE and RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard</text>
+<text class="t-desc" x="56" y="1228">holds the board store, and /etc/mcl/secrets holds identity.key, which the realm's delegation is bound to.</text>
+<path class="edge" d="M1128 160H1140V926H950V958" marker-end="url(#a)"/>
+<text class="t-rel" x="1120" y="222" text-anchor="end">events in and out, through evoq</text>
+<text class="t-desc" x="40" y="1272">The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every</text>
+<text class="t-desc" x="40" y="1290">standing mesh subscription. A start-up ordering test holds that order, and a test fails any event handler that declares no replay policy.</text>
+<rect class="b-sys" x="24" y="1326" width="22" height="14" rx="3"/>
+<text class="t-leg" x="54" y="1338">In scope</text>
+<rect class="b-per" x="110.8" y="1326" width="22" height="14" rx="3"/>
+<text class="t-leg" x="140.8" y="1338">Person</text>
+<rect class="b-mac" x="184.39999999999998" y="1326" width="22" height="14" rx="3"/>
+<text class="t-leg" x="214.39999999999998" y="1338">Macula infrastructure</text>
+<rect class="b-ext" x="357.0" y="1326" width="22" height="14" rx="3"/>
+<text class="t-leg" x="387.0" y="1338">External system</text>
+<rect class="b-cmp" x="490.0" y="1326" width="22" height="14" rx="3"/>
+<text class="t-leg" x="520.0" y="1338">Container or component</text>
+<rect class="bound" x="669.2" y="1326" width="22" height="14" rx="3"/>
+<text class="t-leg" x="699.2" y="1338">Boundary</text>
+</svg>
