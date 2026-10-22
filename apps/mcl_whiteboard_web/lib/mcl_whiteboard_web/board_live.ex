@@ -41,8 +41,8 @@ defmodule MclWhiteboardWeb.BoardLive do
   # literal shared across the whole fleet -- a single hardcoded id here
   # meant every node that couldn't reach the real host over the mesh in
   # time (find_or_host_default_board/0's :not_found fallback) silently
-  # minted its OWN independent board under the SAME id, so beam01, beam02
-  # and msi00 ended up with three different boards answering to one
+  # minted its OWN independent board under the SAME id, so node-a, node-b
+  # and node-c ended up with three different boards answering to one
   # board_id (found live 2026-08-26, see CHANGELOG). Node.self() is fixed
   # per deployed node (distinct mcl_whiteboard@<host> per fleet box,
   # :nonode@nohost for local dev), so this is still stable across restarts
@@ -470,9 +470,9 @@ defmodule MclWhiteboardWeb.BoardLive do
     end
   end
 
-  # "beam01.lab" -> "beam01" -- the ".lab" suffix is implied by the demo
-  # fleet's own naming, dropping it keeps the topbar from repeating what
-  # "via {station}" already makes clear is a machine, not a domain.
+  # "node-a.example" -> "node-a" -- the demo fleet names hosts with a domain
+  # suffix; dropping it keeps the topbar from repeating what "via {station}"
+  # already makes clear is a machine, not a domain.
   defp host_short(host), do: host |> String.split(".") |> List.first()
 
   # "https://station-de-falkenstein.macula.io:4433" -> "de-falkenstein".

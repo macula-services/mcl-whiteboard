@@ -9,9 +9,9 @@ name: ci
 #   push of v*   : ghcr.io/macula-services/mcl-whiteboard:<X.Y.Z>, then :latest once attest signed it
 #
 # ONLY A RELEASE MOVES :latest (promote-latest, after attest). No box follows it as a
-# deploy channel: the fleet pins a signed release by digest, and this image has no pin
-# line in macula-fleet yet, so a green v* tag changes what the registry publishes and
-# nothing that runs. A push to main deploys nothing.
+# deploy channel, and this image has no line in macula-fleet's edge/gitops/release-targets
+# yet, so a green v* tag changes what the registry publishes and nothing that runs. A
+# push to main deploys nothing.
 #
 # PATH FILTERS. A docs-only change must not rebuild or re-push an image. Keep
 # this list to things that cannot change what the image contains.

@@ -143,9 +143,8 @@ def context():
            "shape fact, and relays a remote", "peer's writes to the board's host.",
            "One release, six OTP apps."])
     d.box("b-mac", 40, 470, 300, 152, "macula-realm", "[Macula infrastructure]",
-          ["Endorses the node's identity key and", "grants the scope mcl-whiteboard. The",
-           "procedures are mcl_om's", "mcl-whiteboard/info and",
-           "mcl-whiteboard/get_limits, both open."])
+          ["Endorses the node's identity key and", "grants the scope mcl-whiteboard, with",
+           "info and get_limits as the procedures,", "both open."])
     d.box("b-mac", 390, 470, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
           ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
            "write relay and query (QUIC); the", "DHT holds the node's advertisement."])
@@ -166,8 +165,8 @@ def context():
     d.edge("M710 300H890V470")
     d.text("t-rel", 718, 292, "queries reach every host")
     d.text("t-desc", 40, 640, "Nothing outside the mesh is called: the board list and the snapshots come from other hosts over pubsub.")
-    d.text("t-desc", 40, 658, "The service serves no procedure of its own, and capabilities/0 is empty. mcl_om adds mcl-whiteboard/info and")
-    d.text("t-desc", 40, 676, "mcl-whiteboard/get_limits to every service, both open.")
+    d.text("t-desc", 40, 658, "The service serves no procedure of its own, and capabilities/0 is empty. mcl_om adds the open")
+    d.text("t-desc", 40, 676, "pair every service carries: mcl-whiteboard/info and mcl-whiteboard/get_limits.")
     d.legend(716, boundary=False)
     d.write()
 
@@ -182,7 +181,7 @@ def components():
            "and event handlers are registered before the store subscription delivers."], code=True)
     d.box("b-sys", 32, 238, 540, 136, "MclWhiteboard.Service", "[mcl_om_service behaviour]",
           ["The six callbacks plus subscriptions/0, the whole desired set of standing",
-           "mesh subscriptions, which mcl_om re-checks every 30 s. capabilities/0 is",
+           "mesh subscriptions, which mcl_om re-checks on a timer. capabilities/0 is",
            "empty: everything a peer does with a board goes over pubsub, not RPC. Its",
            "scope is mcl-whiteboard, and health/0 is green while the tree is up."], code=True)
     d.box("b-cmp", 32, 422, 540, 104, "MclWhiteboard.Supervisor", "[supervisor, one_for_one]",

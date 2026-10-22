@@ -17,7 +17,7 @@ defmodule ProjectBoards.BoardLifecycleMeshSubscriberTest do
   end
 
   test "re-broadcasts an atom-keyed payload with event_type derived from the topic" do
-    payload = %{board_id: "board-atomtest", title: "Retro", owner: "beam02", host: "beam02"}
+    payload = %{board_id: "board-atomtest", title: "Retro", owner: "node-b", host: "node-b"}
 
     assert {:noreply, nil} =
              BoardLifecycleMeshSubscriber.handle_event(@hosted_topic, payload, %{}, nil)
@@ -30,8 +30,8 @@ defmodule ProjectBoards.BoardLifecycleMeshSubscriberTest do
     payload = %{
       {:text, "board_id"} => "board-texttest",
       {:text, "title"} => {:text, "Retro"},
-      {:text, "owner"} => {:text, "beam02"},
-      {:text, "host"} => {:text, "beam02"}
+      {:text, "owner"} => {:text, "node-b"},
+      {:text, "host"} => {:text, "node-b"}
     }
 
     assert {:noreply, nil} =

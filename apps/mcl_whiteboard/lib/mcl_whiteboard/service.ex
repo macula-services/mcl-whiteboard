@@ -6,10 +6,10 @@ defmodule MclWhiteboard.Service do
   # is watching. `@behaviour :mcl_om_service` turns that into a compile
   # error instead.
   #
-  # IT ANNOUNCES NO CAPABILITY. Everything a peer does with a board goes
-  # over pubsub (facts, write relays, and the board list/snapshot queries,
-  # which every host must hear, not just one provider), so there is no RPC
-  # procedure to advertise.
+  # IT DECLARES NO CAPABILITY OF ITS OWN. Everything a peer does with a board
+  # goes over pubsub (facts, write relays, and the board list/snapshot queries,
+  # which every host must hear, not just a provider), so nothing of its own is
+  # advertised as callable; mcl_om adds the open info and get_limits anyway.
   @behaviour :mcl_om_service
 
   alias GuideBoardLifecycle.BoardLifecycleV1ToMesh

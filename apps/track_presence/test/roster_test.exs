@@ -19,7 +19,7 @@ defmodule TrackPresence.RosterTest do
       x: 10,
       y: 20,
       color: "hsl(1, 70%, 65%)",
-      label: "beam01 via de-falkenstein"
+      label: "node-a via the demo station"
     })
 
     assert_receive {:cursor_settled, @board, %{peer_id: "p1", x: 10, y: 20}}
