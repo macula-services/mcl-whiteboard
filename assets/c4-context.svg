@@ -63,7 +63,7 @@
 <text class="t-desc" x="756" y="148">to the host.</text>
 <rect class="b-sys" x="390" y="230" width="320" height="152" rx="10"/>
 <text class="t-name" x="406" y="258">mcl-whiteboard</text>
-<text class="t-type" x="406" y="276">[mcl_om mesh service, own box]</text>
+<text class="t-type" x="406" y="276">[mcl_om mesh service]</text>
 <text class="t-desc" x="406" y="300">Hosts boards and serves the canvas</text>
 <text class="t-desc" x="406" y="316">on 4000, publishes every board and</text>
 <text class="t-desc" x="406" y="332">shape fact, and relays a remote</text>
@@ -73,16 +73,16 @@
 <text class="t-name" x="56" y="498">macula-realm</text>
 <text class="t-type" x="56" y="516">[Macula infrastructure]</text>
 <text class="t-desc" x="56" y="540">Endorses the node's identity key and</text>
-<text class="t-desc" x="56" y="556">grants the scope mcl-whiteboard, with</text>
-<text class="t-desc" x="56" y="572">info and get_limits as the procedures,</text>
-<text class="t-desc" x="56" y="588">both open.</text>
+<text class="t-desc" x="56" y="556">grants a provider authorization for</text>
+<text class="t-desc" x="56" y="572">each org procedure it advertises,</text>
+<text class="t-desc" x="56" y="588">info and get_limits included.</text>
 <rect class="b-mac" x="390" y="470" width="320" height="136" rx="10"/>
 <text class="t-name" x="406" y="498">Macula stations, mesh DHT</text>
 <text class="t-type" x="406" y="516">[Macula infrastructure]</text>
 <text class="t-desc" x="406" y="540">The pinned seeds in</text>
 <text class="t-desc" x="406" y="556">MACULA_STATION_SEEDS carry every fact,</text>
 <text class="t-desc" x="406" y="572">write relay and query (QUIC); the</text>
-<text class="t-desc" x="406" y="588">DHT holds the node's advertisement.</text>
+<text class="t-desc" x="406" y="588">DHT keeps a record per org procedure.</text>
 <rect class="b-ext" x="740" y="470" width="300" height="152" rx="10"/>
 <text class="t-name" x="756" y="498">Another host's node</text>
 <text class="t-type" x="756" y="516">[External system]</text>

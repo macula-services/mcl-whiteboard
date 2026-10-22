@@ -19,7 +19,7 @@ every service, both open.
 | mcl-whiteboard | In scope | Hosts boards, serves the canvas on 4000, publishes every board and shape fact, and relays a remote peer's writes to the board's host. One OTP release, six apps, one container |
 | Board host | Person | Runs the service on their own node and opens `/boards` in a browser on port 4000. Their node is the authority for the boards it hosts |
 | Collaborator | Person | Finds a board over the mesh, gets a snapshot, then live updates, and draws on it; the writes are relayed to the host |
-| macula-realm | Macula infrastructure | Endorses the node's identity key and grants the scope `mcl-whiteboard`. No provider authorization is asked for: the procedures are `mcl_om`'s `mcl-whiteboard/info` and `mcl-whiteboard/get_limits`, both open |
+| macula-realm | Macula infrastructure | Endorses the node's identity key and grants a a provider authorization per org procedure, `mcl-whiteboard/info` and `mcl-whiteboard/get_limits` included. The procedures are open to callers, but an advertisement still needs that grant: without it `/health` reads degraded |
 | Macula stations, mesh DHT | Macula infrastructure | The pinned seeds in `MACULA_STATION_SEEDS` carry every fact, write relay and query over QUIC; the DHT holds the node's advertisement |
 | Another host's node | External system | Another box running this service, and the authority for its boards. Both queries reach every host: the list query is answered by every host that has boards, and the snapshot query only by that board's host |
 

@@ -138,16 +138,16 @@ def context():
     d.box("b-per", 740, 30, 300, 136, "Collaborator", "[Person]",
           ["Finds a board over the mesh, gets", "a snapshot, then live updates, and",
            "draws on it: the writes are relayed", "to the host."], person=True)
-    d.box("b-sys", 390, 230, 320, 152, "mcl-whiteboard", "[mcl_om mesh service, own box]",
+    d.box("b-sys", 390, 230, 320, 152, "mcl-whiteboard", "[mcl_om mesh service]",
           ["Hosts boards and serves the canvas", "on 4000, publishes every board and",
            "shape fact, and relays a remote", "peer's writes to the board's host.",
            "One release, six OTP apps."])
     d.box("b-mac", 40, 470, 300, 152, "macula-realm", "[Macula infrastructure]",
-          ["Endorses the node's identity key and", "grants the scope mcl-whiteboard, with",
-           "info and get_limits as the procedures,", "both open."])
+          ["Endorses the node's identity key and", "grants a provider authorization for",
+           "each org procedure it advertises,", "info and get_limits included."])
     d.box("b-mac", 390, 470, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
           ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
-           "write relay and query (QUIC); the", "DHT holds the node's advertisement."])
+           "write relay and query (QUIC); the", "DHT keeps a record per org procedure."])
     d.box("b-ext", 740, 470, 300, 152, "Another host's node", "[External system]",
           ["Another box running this service,", "and the authority for its boards.",
            "The list query is answered by every", "host with boards; the snapshot query",
@@ -243,8 +243,8 @@ def components():
     d.box("b-cmp", 776, 958, 352, 136, "evoq / reckon_evoq / reckon_db", "[libraries, ~> 1.24 / ~> 2.8 / ~> 5.11]",
           ["The board aggregate's event sourcing,",
            "its store subscription, and the store",
-           "the projections replay from. macula 16,",
-           "wire 1.0, post-quantum only."], code=True)
+           "the projections replay from: one",
+           "reckon-db instance, no indexes."], code=True)
     d.box("b-ext", 40, 1126, 1080, 136, "The host environment", "[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]",
           ["config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_PORT (8491), MCL_HTTP_PORT (4000), MCL_REALM_NAME, MCL_REALM_KEY",
            "and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and MCL_BOX at boot; the release's env.sh",

@@ -144,8 +144,8 @@
 <text class="t-type" x="792" y="1004">[libraries, ~&gt; 1.24 / ~&gt; 2.8 / ~&gt; 5.11]</text>
 <text class="t-desc" x="792" y="1028">The board aggregate's event sourcing,</text>
 <text class="t-desc" x="792" y="1044">its store subscription, and the store</text>
-<text class="t-desc" x="792" y="1060">the projections replay from. macula 16,</text>
-<text class="t-desc" x="792" y="1076">wire 1.0, post-quantum only.</text>
+<text class="t-desc" x="792" y="1060">the projections replay from: one</text>
+<text class="t-desc" x="792" y="1076">reckon-db instance, no indexes.</text>
 <rect class="b-ext" x="40" y="1126" width="1080" height="136" rx="10"/>
 <text class="t-code" x="56" y="1154">The host environment</text>
 <text class="t-type" x="56" y="1172">[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]</text>
