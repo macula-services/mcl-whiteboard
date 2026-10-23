@@ -166,6 +166,15 @@ the same build.
 volumes and environment. Placement (which box, which station, which realm key)
 belongs in `macula-io/macula-fleet`. The service is not deployed anywhere yet.
 
+## Architecture
+
+The C4 model is in [architecture/README.md](architecture/README.md), with its
+diagrams drawn by `architecture/c4_diagrams.py` into `assets/`. Change the
+script, run it (`python3 architecture/c4_diagrams.py`), and look at the result
+before committing.
+
+![mcl-whiteboard system context](assets/c4-context.svg)
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
