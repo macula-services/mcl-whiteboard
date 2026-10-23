@@ -10,11 +10,11 @@ defmodule QueryBoards.ListBoardsOverMeshTest do
   test "flattens boards from multiple host replies, tagging each with its host" do
     replies = [
       %{
-        host: "beam01.lab",
+        host: "node-a.example",
         boards: [%{board_id: "board-a", title: "A", owner: "raf", stroke_count: 2}]
       },
       %{
-        host: "beam02.lab",
+        host: "node-b.example",
         boards: [%{board_id: "board-b", title: "B", owner: "raf", stroke_count: 0}]
       }
     ]
@@ -22,8 +22,8 @@ defmodule QueryBoards.ListBoardsOverMeshTest do
     merged = ListBoardsOverMesh.merge(replies)
 
     assert [
-             %{board_id: "board-a", host: "beam01.lab"},
-             %{board_id: "board-b", host: "beam02.lab"}
+             %{board_id: "board-a", host: "node-a.example"},
+             %{board_id: "board-b", host: "node-b.example"}
            ] =
              Enum.map(merged, &Map.take(&1, [:board_id, :host]))
   end
@@ -31,27 +31,27 @@ defmodule QueryBoards.ListBoardsOverMeshTest do
   test "the same board_id from two hosts (symmetric-gossip default board) dedups, first reply wins" do
     replies = [
       %{
-        host: "beam01.lab",
+        host: "node-a.example",
         boards: [%{board_id: "board-x", title: "X", owner: "a", stroke_count: 5}]
       },
       %{
-        host: "beam02.lab",
+        host: "node-b.example",
         boards: [%{board_id: "board-x", title: "X", owner: "a", stroke_count: 3}]
       }
     ]
 
-    assert [%{board_id: "board-x", host: "beam01.lab", stroke_count: 5}] =
+    assert [%{board_id: "board-x", host: "node-a.example", stroke_count: 5}] =
              ListBoardsOverMesh.merge(replies)
   end
 
   test "sorts the merged result by title" do
     replies = [
       %{
-        host: "beam01.lab",
+        host: "node-a.example",
         boards: [%{board_id: "board-z", title: "Zebra", owner: "a", stroke_count: 0}]
       },
       %{
-        host: "beam02.lab",
+        host: "node-b.example",
         boards: [%{board_id: "board-a", title: "Apple", owner: "a", stroke_count: 0}]
       }
     ]

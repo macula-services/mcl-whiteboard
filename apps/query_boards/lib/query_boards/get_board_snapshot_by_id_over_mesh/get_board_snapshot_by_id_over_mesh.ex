@@ -109,7 +109,7 @@ defmodule QueryBoards.GetBoardSnapshotByIdOverMesh.GetBoardSnapshotByIdOverMesh 
   # nil), AND all but the FIRST such shape in the list vanished outright:
   # new_shape?(nil) is only true once, so every non-stroke shape after the
   # first collided on the same nil key and got filtered out as an
-  # apparent "redelivery". Found live: msi00's join snapshot of a board
+  # apparent "redelivery". Found live: node-c's join snapshot of a board
   # with a rectangle and four stickies came back with the rectangle
   # missing entirely and only one corrupted, textless sticky surviving.
   #
