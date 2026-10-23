@@ -11,7 +11,7 @@ defmodule GuideBoardLifecycle.ShapeLifecycle.ShapeLifecycleV1ToMesh do
   #
   # One topic PER event type, not one shared topic: "a shape was
   # created", "an existing shape changed", and "a shape was removed" are
-  # three distinct kinds of news, not variations of one action -- a
+  # three distinct kinds of news, not variations of the same action -- a
   # future consumer that only cares about removals shouldn't have to
   # filter the other two out. This is a DIFFERENT call than
   # ShapeMutatedV1ToMesh's old shared topic, on purpose: that shared
