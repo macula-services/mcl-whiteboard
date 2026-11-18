@@ -27,7 +27,9 @@ defmodule MclWhiteboardWeb.AllowedHosts do
     end
   end
 
-  defp bare(host), do: host |> String.trim_leading("[") |> String.trim_trailing("]")
+  # Hosts compare in lowercase, as config/runtime.exs keeps the allowed ones.
+  defp bare(host),
+    do: host |> String.downcase() |> String.trim_leading("[") |> String.trim_trailing("]")
 
   defmacro __before_compile__(_env) do
     quote do

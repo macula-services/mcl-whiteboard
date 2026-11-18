@@ -100,6 +100,9 @@ USER app
 ENV MCL_DATA_DIR=/var/lib/mcl-whiteboard
 ENV MCL_IDENTITY_KEY_PATH=/etc/mcl/secrets/identity.key
 ENV MCL_HTTP_PORT=4000
+# The UI has no login, so the image listens on loopback unless the box says
+# otherwise (mcl-whiteboard#15); beyond loopback, MCL_HTTP_ORIGINS is required.
+ENV MCL_HTTP_IP=127.0.0.1
 VOLUME ["/var/lib/mcl-whiteboard", "/etc/mcl/secrets"]
 # /health is a Unix socket, not a port; 4000 is the web UI.
 EXPOSE 4000

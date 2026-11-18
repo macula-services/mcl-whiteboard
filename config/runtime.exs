@@ -121,14 +121,18 @@ http_origins =
 
 origin_hosts =
   for origin <- http_origins do
-    case Regex.run(~r<\A//([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\]):([0-9]{1,5})\z>, origin) do
-      [_, host, _port] ->
-        host
-
-      nil ->
+    # A port outside 1..65535 is refused as well: it would boot and match
+    # nothing. A browser sends the host in lowercase, so the host is kept that
+    # way; an entry written in capitals would otherwise refuse every request.
+    with [_, host, port] <-
+           Regex.run(~r<\A//([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\]):([0-9]{1,5})\z>, origin),
+         true <- String.to_integer(port) in 1..65_535 do
+      String.downcase(host)
+    else
+      _ ->
         raise ArgumentError,
               "MCL_HTTP_ORIGINS entry #{inspect(origin)} is not //host:port " <>
-                "(no scheme, no path, no wildcard)"
+                "(no scheme, no path, no wildcard, a port from 1 to 65535)"
     end
   end
 
@@ -147,7 +151,10 @@ if not loopback? and http_origins == [] do
 end
 
 local_hosts = ["localhost", "127.0.0.1", "[::1]"]
-check_origin = Enum.map(local_hosts, &"//#{&1}:#{http_port}") ++ http_origins
+
+check_origin =
+  Enum.map(local_hosts, &"//#{&1}:#{http_port}") ++ Enum.map(http_origins, &String.downcase/1)
+
 # A request's host is compared in its bare form, without IPv6 brackets
 # (MclWhiteboardWeb.AllowedHosts strips them from the request too).
 allowed_hosts =

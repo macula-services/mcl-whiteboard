@@ -58,6 +58,10 @@ defmodule MclWhiteboardWeb.AllowedHostsTest do
     end
   end
 
+  test "a host is compared in lowercase" do
+    refute AllowedHosts.check(%Plug.Conn{host: "LocalHost"}, Endpoint.config(:allowed_hosts)).halted
+  end
+
   test "the server answers a page under [::1] with its port" do
     refute raw_request(["GET /boards HTTP/1.1", "Host: [::1]:#{port()}"]) ==
              "HTTP/1.1 400 Bad Request"

@@ -64,6 +64,26 @@ defmodule MclWhiteboardWeb.RuntimeHttpSettingsTest do
     end
   end
 
+  test "an origin whose port is outside 1..65535 refuses the boot" do
+    for entry <- ["//box.example:70000", "//box.example:0"] do
+      assert_raise ArgumentError,
+                   ~r/^MCL_HTTP_ORIGINS entry "#{Regex.escape(entry)}" is not/,
+                   fn ->
+                     boot_with(%{"MCL_HTTP_IP" => "0.0.0.0", "MCL_HTTP_ORIGINS" => entry})
+                   end
+    end
+  end
+
+  test "an origin written in capitals is kept in lowercase, as a browser sends it" do
+    web =
+      endpoint(
+        boot_with(%{"MCL_HTTP_IP" => "0.0.0.0", "MCL_HTTP_ORIGINS" => "//Box.Example:4555"})
+      )
+
+    assert List.last(web[:check_origin]) == "//box.example:4555"
+    assert List.last(web[:allowed_hosts]) == "box.example"
+  end
+
   test "with nothing set, the UI listens on loopback and answers local origins and hosts only" do
     web = endpoint(boot_with(%{}))
     assert web[:http][:ip] == {127, 0, 0, 1}
