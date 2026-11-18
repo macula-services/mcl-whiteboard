@@ -46,6 +46,8 @@ jobs:
           persist-credentials: false
       - name: The diagrams match their generator
         run: |
+          # Every C4 SVG is removed first, so one the generator no longer draws shows as deleted.
+          rm -f assets/c4-*.svg
           python3 architecture/c4_diagrams.py
           drift="$(git status --porcelain -- assets/)"
           if [ -n "$drift" ]; then
