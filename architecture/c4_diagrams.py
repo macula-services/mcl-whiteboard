@@ -1,9 +1,15 @@
-"""Generate mcl-whiteboard's two C4 diagrams into assets/.
+"""Generate mcl-whiteboard's three C4 diagrams into assets/.
 
 Run:  python3 architecture/c4_diagrams.py
 
-  c4-context.svg     Level 1: what the service talks to
-  c4-components.svg  Level 2: what it is made of
+  c4-context.svg     Level 1: who uses the service, and what it talks to
+  c4-container.svg   Level 2: what it runs as
+  c4-components.svg  Level 3: what the release is made of
+
+Boxes of the kind b-plan, drawn dashed, are planned by the storming plan
+(macula-services/mcl-whiteboard#13) and not built yet. Each names its package.
+architecture/README.md lists them, and architecture/test_c4_planned_boxes.py
+fails when one of them is drawn as anything else.
 
 Drawn from the code, never from a template: the six umbrella apps under apps/,
 the callbacks and subscriptions in lib/mcl_whiteboard/service.ex, the desks of
@@ -33,6 +39,7 @@ KINDS = {
     "b-mac": ("#E6E4EE", "#5E5A78", "#26243A", "#A9A4C8"),   # Macula infrastructure
     "b-ext": ("#ECEFED", "#8A9791", "#1C2421", "#7D8B85"),   # external system
     "b-cmp": ("#FFFFFF", "#8A9791", "#171F1C", "#7D8B85"),   # component or container
+    "b-plan": ("#F7F8F7", "#8A9791", "#1A221F", "#7D8B85"),  # planned, not built yet
 }
 
 STYLE = f"""<style>
@@ -47,7 +54,7 @@ STYLE = f"""<style>
 .edge-later {{ fill: none; stroke-width: 1.25; stroke-dasharray: 5 4; }}
 .bg {{ fill: #FFFFFF; }}
 """ + "".join(f".{k} {{ fill: {v[0]}; stroke: {v[1]}; stroke-width: {2 if k == 'b-sys' else 1.25}; }}\n" for k, v in KINDS.items()) + """\
-.b-later { fill: none; stroke: #8A9791; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.b-plan { stroke-dasharray: 6 4; }
 .bound { fill: none; stroke: #B3BDB8; stroke-width: 1; }
 .head { fill: #3B5B7A; }
 .t-name, .t-code { fill: #16201D; }
@@ -59,7 +66,6 @@ STYLE = f"""<style>
 @media (prefers-color-scheme: dark) {
 .bg { fill: #171F1C; }
 """ + "".join(f".{k} {{ fill: {v[2]}; stroke: {v[3]}; }}\n" for k, v in KINDS.items()) + """\
-.b-later { stroke: #7D8B85; }
 .bound { stroke: #4A5752; }
 .head { fill: #8EB4D8; }
 .t-name, .t-code { fill: #E6ECE9; }
@@ -75,7 +81,8 @@ DEFS = ('<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth=
         'orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>')
 
 LEGEND = [("b-sys", "In scope"), ("b-per", "Person"), ("b-mac", "Macula infrastructure"),
-          ("b-ext", "External system"), ("b-cmp", "Container or component")]
+          ("b-ext", "External system"), ("b-cmp", "Container or component"),
+          ("b-plan", "Planned (the package that builds it)")]
 BOUNDARY = ("bound", "Boundary")
 
 
@@ -98,6 +105,9 @@ class Diagram:
         for line in desc:
             if 16 + 6.2 * len(line) > w - 16:
                 raise ValueError(f"{self.name}: {name}: '{line}' is wider than {w - 32}px")
+        # Each box is a group named for the box, so a test can read a box's kind
+        # back from the SVG by its name (architecture/test_c4_planned_boxes.py).
+        self.parts.append(f'<g data-box="{escape(name)}">')
         self.parts.append(f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="10"/>')
         tx = x + 16
         if person:
@@ -107,6 +117,7 @@ class Diagram:
         self.text("t-type", tx, y + 46, kind)
         for i, line in enumerate(desc):
             self.text("t-desc", x + 16, y + 70 + 16 * i, line)
+        self.parts.append("</g>")
 
     def bound(self, x, y, w, h, label):
         self.parts.append(f'<rect class="bound" x="{x}" y="{y}" width="{w}" height="{h}" rx="12"/>')
@@ -131,49 +142,176 @@ class Diagram:
 
 
 def context():
-    d = Diagram("c4-context.svg", "mcl-whiteboard system context", 1100, 780)
-    d.box("b-per", 40, 30, 300, 136, "Board host", "[Person]",
-          ["Runs this service on their own node", "and opens /boards in a browser",
-           "on port 4000. Their node is the", "authority for the boards it hosts."], person=True)
-    d.box("b-per", 740, 30, 300, 136, "Collaborator", "[Person]",
-          ["Finds a board over the mesh, gets", "a snapshot, then live updates, and",
-           "draws on it: the writes are relayed", "to the host."], person=True)
-    d.box("b-sys", 390, 230, 320, 152, "mcl-whiteboard", "[mcl_om mesh service]",
+    d = Diagram("c4-context.svg", "mcl-whiteboard system context", 1400, 1010)
+    d.box("b-per", 40, 30, 300, 136, "Facilitator", "[Person]",
+          ["Hosts the board: runs this service on", "their own node, opens /boards on port",
+           "4000, and runs the phases and the", "timer. Their node is the authority."], person=True)
+    d.box("b-per", 380, 30, 300, 136, "Participants", "[Person]",
+          ["The business people at the wall. Each", "finds the board over the mesh, gets a",
+           "snapshot, then live updates, and", "draws; writes are relayed to the host."],
+          person=True)
+    d.box("b-per", 720, 30, 300, 136, "Builder", "[Person]",
+          ["Turns on the builder view to read", "the wall for the code it asks for:",
+           "the Divisions, their lanes and the", "folder each note belongs in."], person=True)
+    d.box("b-plan", 1060, 30, 300, 136, "Expert agent", "[Planned: package 5]",
+          ["A participant in a row of its own,", "named for what it is. Its notes count",
+           "apart, also with business people in", "the room."], person=True)
+    d.box("b-sys", 540, 240, 320, 152, "mcl-whiteboard", "[mcl_om mesh service]",
           ["Hosts boards and serves the canvas", "on 4000, publishes every board and",
            "shape fact, and relays a remote", "peer's writes to the board's host.",
            "One release, six OTP apps."])
-    d.box("b-mac", 40, 470, 300, 152, "macula-realm", "[Macula infrastructure]",
+    d.box("b-mac", 40, 480, 300, 152, "macula-realm", "[Macula infrastructure]",
           ["Endorses the node's identity key and", "grants a provider authorization for",
            "each org procedure it advertises,", "info and get_limits included."])
-    d.box("b-mac", 390, 470, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
+    d.box("b-mac", 540, 480, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
           ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
            "write relay and query (QUIC); the", "DHT keeps a record per org procedure."])
-    d.box("b-ext", 740, 470, 300, 152, "Another host's node", "[External system]",
+    d.box("b-ext", 1060, 480, 300, 152, "Another host's node", "[External system]",
           ["Another box running this service,", "and the authority for its boards.",
            "The list query is answered by every", "host with boards; the snapshot query",
            "only by that board's host."])
+    d.box("b-plan", 40, 720, 300, 136, "The Division's repository", "[Planned: package 4]",
+          ["Receives the agreed wall as", "wall.json. Its pipeline runs the",
+           "wall-tree check (built in #14), which", "holds the code tree to the wall."])
+    d.box("b-plan", 540, 720, 320, 136, "GitHub issues", "[Planned: packages 3 and 6]",
+          ["Package 3 files each big-picture hot", "spot as an issue and each opportunity",
+           "as a proposal issue. Package 6 files", "a note with no folder as an issue."])
+    d.box("b-plan", 1060, 720, 300, 136, "mcl-kanban", "[Planned: package 6]",
+          ["Takes a card for each note that has", "no folder yet, with no change to",
+           "mcl-kanban. The note links to its", "issue and card until its folder exists."])
 
-    d.edge("M190 166V200H430V230")
-    d.text("t-rel", 198, 180, "opens the canvas on port 4000")
-    d.edge("M950 166V200H670V230")
-    d.text("t-rel", 940, 192, "joins a board, local or remote", anchor="end")
-    d.edge("M470 382V420H190V470")
-    d.text("t-rel", 300, 412, "boot claim, scope mcl-whiteboard", anchor="middle")
-    d.edge("M550 382V470")
-    d.text("t-rel", 558, 404, "board and shape facts,")
-    d.text("t-rel", 558, 420, "write relays and queries")
-    d.edge("M710 300H890V470")
-    d.text("t-rel", 718, 292, "queries reach every host")
-    d.text("t-desc", 40, 640, "Nothing outside the mesh is called: the board list and the snapshots come from other hosts over pubsub.")
-    d.text("t-desc", 40, 658, "The service serves no procedure of its own, and capabilities/0 is empty. mcl_om adds the open")
-    d.text("t-desc", 40, 676, "pair every service carries: mcl-whiteboard/info and mcl-whiteboard/get_limits.")
-    d.legend(716, boundary=False)
+    d.edge("M190 166V210H580V240")
+    d.text("t-rel", 198, 194, "hosts the board, runs the phases")
+    d.edge("M530 166V200H640V240")
+    d.text("t-rel", 538, 186, "joins and draws")
+    d.edge("M870 166V200H760V240")
+    d.text("t-rel", 862, 186, "reads the wall", anchor="end")
+    d.edge("M1210 166V210H820V240", later=True)
+    d.text("t-rel", 1202, 194, "joins its own row", anchor="end")
+    d.edge("M580 392V440H190V480")
+    d.text("t-rel", 198, 432, "boot claim, scope mcl-whiteboard")
+    d.edge("M700 392V480")
+    d.text("t-rel", 708, 414, "board and shape facts,")
+    d.text("t-rel", 708, 430, "write relays and queries")
+    d.edge("M860 310H1210V480")
+    d.text("t-rel", 868, 302, "queries reach every host")
+    d.edge("M540 340H420V680H190V720", later=True)
+    d.text("t-rel", 300, 672, "writes the agreed wall.json", anchor="middle")
+    d.edge("M540 372H460V690H640V720", later=True)
+    d.text("t-rel", 648, 712, "files issues")
+    d.edge("M860 372H960V680H1210V720", later=True)
+    d.text("t-rel", 1085, 672, "hands notes over as cards", anchor="middle")
+    d.text("t-desc", 40, 882, "Nothing outside the mesh is called today: the board list and the snapshots come from other hosts over pubsub. The service serves")
+    d.text("t-desc", 40, 900, "no procedure of its own, and capabilities/0 is empty. mcl_om adds the open pair every service carries: mcl-whiteboard/info and")
+    d.text("t-desc", 40, 918, "mcl-whiteboard/get_limits. Dashed boxes and arrows are planned (macula-services/mcl-whiteboard#13), each named for its package.")
+    d.legend(956, boundary=False)
     d.write()
 
 
+def container():
+    d = Diagram("c4-container.svg", "mcl-whiteboard containers", 1400, 1150)
+    d.box("b-per", 40, 30, 300, 136, "People at the board", "[Person]",
+          ["The facilitator, the participants", "and the builder, each in a browser",
+           "on a node that runs this service or", "reaches one over the mesh."], person=True)
+    d.bound(380, 20, 1000, 592, "mcl-whiteboard [Software system]")
+    d.box("b-cmp", 400, 60, 440, 136, "Browser", "[Container: HTML5 Canvas and the LiveView client]",
+          ["Draws the board on a canvas with no npm dependencies, and",
+           "talks to the release over the LiveView socket: the board's",
+           "shapes and cursors in, each stroke and move out. It keeps",
+           "nothing: a reload asks the release for the board again."])
+    d.box("b-sys", 400, 260, 440, 152, "mcl-whiteboard release", "[Container: one OTP release, six apps]",
+          ["Runs as app on host networking. The web UI is on",
+           "MCL_HTTP_PORT (4000), on loopback unless MCL_HTTP_IP says",
+           "otherwise; /health is the Unix socket /run/mcl/health.sock.",
+           "Event sources each board, projects the read models into",
+           "ETS, and reaches the mesh through mcl_om and macula."])
+    d.box("b-cmp", 900, 260, 440, 136, "Board store", "[Container: reckon-db, volume /var/lib/mcl-whiteboard]",
+          ["Every board's events, one single-node store, no indexes.",
+           "The read models are not kept here: the projections",
+           "rebuild them into ETS from this store at start.",
+           "The volume outlives the container."])
+    d.box("b-cmp", 900, 440, 440, 136, "Identity key", "[Container: file, volume /etc/mcl/secrets]",
+          ["identity.key, the node's key. The realm's delegation",
+           "is bound to it, so a new key needs a new delegation.",
+           "The release reads it at boot from",
+           "MCL_IDENTITY_KEY_PATH."])
+
+    d.box("b-mac", 40, 660, 300, 152, "macula-realm", "[Macula infrastructure]",
+          ["Endorses the node's identity key and", "grants a provider authorization for",
+           "each org procedure it advertises,", "info and get_limits included."])
+    d.box("b-mac", 540, 660, 320, 136, "Macula stations, mesh DHT", "[Macula infrastructure]",
+          ["The pinned seeds in", "MACULA_STATION_SEEDS carry every fact,",
+           "write relay and query (QUIC); the", "DHT keeps a record per org procedure."])
+    d.box("b-ext", 1060, 660, 300, 136, "Another host's node", "[External system]",
+          ["Another box running this service,", "and the authority for its boards.",
+           "Reached only through the stations:", "nothing calls it directly."])
+
+    d.box("b-plan", 40, 880, 300, 136, "The Division's repository", "[Planned: package 4]",
+          ["Receives the agreed wall as", "wall.json, in #14's schema, with",
+           "the layout kept apart. The wall-tree", "check runs in its pipeline."])
+    d.box("b-ext", 380, 880, 300, 136, "wall-tree check", "[External system, built in #14]",
+          ["The reusable check from", "macula-io/macula-ci-images. It fails",
+           "by name when the code tree and", "wall.json disagree."])
+    d.box("b-plan", 720, 880, 300, 136, "GitHub issues", "[Planned: packages 3 and 6]",
+          ["Package 3 files each big-picture hot", "spot as an issue and each opportunity",
+           "as a proposal issue. Package 6 files", "a note with no folder as an issue."])
+    d.box("b-plan", 1060, 880, 300, 136, "mcl-kanban", "[Planned: package 6]",
+          ["Takes a card for each note that has", "no folder yet, with no change to",
+           "mcl-kanban. The note links to its", "issue and card until its folder exists."])
+
+    d.edge("M340 98H400")
+    d.text("t-rel", 348, 90, "draw on")
+    d.edge("M620 196V260")
+    d.text("t-rel", 628, 232, "LiveView socket, port 4000")
+    d.edge("M840 328H900")
+    d.text("t-rel", 848, 320, "appends")
+    d.edge("M820 412V508H900")
+    d.text("t-rel", 828, 500, "reads at boot")
+    d.edge("M400 392H190V660")
+    d.text("t-rel", 198, 384, "boot claim, scope mcl-whiteboard")
+    d.edge("M620 412V660")
+    d.text("t-rel", 628, 634, "facts, write relays, queries")
+    d.edge("M860 728H1060")
+    d.text("t-rel", 868, 720, "carry them to every host")
+    d.edge("M420 412V840H190V880", later=True)
+    d.text("t-rel", 198, 832, "writes the agreed wall.json")
+    d.edge("M460 412V850H870V880", later=True)
+    d.text("t-rel", 878, 872, "files issues")
+    d.edge("M780 412V600H1036V850H1210V880", later=True)
+    d.text("t-rel", 1218, 872, "hands notes over as cards")
+    d.edge("M380 948H340")
+    d.text("t-rel", 360, 940, "reads", anchor="middle")
+    d.text("t-desc", 40, 1060, "One container image runs the release; the board store and the identity key are its two volumes. Dashed boxes and arrows are")
+    d.text("t-desc", 40, 1078, "planned (macula-services/mcl-whiteboard#13), each named for the package that builds it.")
+    d.legend(1110)
+    d.write()
+
+
+# The components the storming plan adds, each with the package that builds it
+# (macula-services/mcl-whiteboard#13). Each is drawn dashed until its package
+# lands; then it moves into the diagram above as a built box, in that package's
+# commit. architecture/README.md lists the same boxes, and the test reads them there.
+PLANNED_COMPONENTS = [
+    (32, 950, "Authorship and grants", "[Planned: package 2]",
+     ["Every write names its author;", "the host grants writing per", "board and per Division."]),
+    (312, 950, "Wall model", "[Planned: package 3]",
+     ["Note kinds, free marks, lines", "and wires, and the pivotal", "events on the big picture."]),
+    (592, 950, "The opening", "[Planned: package 3]",
+     ["Phases, timer, rows, stacks,", "One Wording and the weight,", "as the host's acts."]),
+    (872, 950, "Division frames, lane form", "[Planned: package 4]",
+     ["Frames that open a Division,", "its lanes and its wiring, and", "the loose-note marks."]),
+    (32, 1086, "Wall-file writer", "[Planned: package 4]",
+     ["Writes the agreed wall as", "wall.json into the Division's", "repository, layout apart."]),
+    (312, 1086, "Agents' rows", "[Planned: package 5]",
+     ["An expert agent's row, named", "for what it is; its notes", "count apart."]),
+    (592, 1086, "Kanban hand-off", "[Planned: package 6]",
+     ["A note with no folder becomes", "an issue and a card on", "mcl-kanban."]),
+]
+
+
 def components():
-    d = Diagram("c4-components.svg", "mcl-whiteboard components", 1160, 1382)
-    d.bound(16, 40, 1128, 886, "mcl-whiteboard [Container: one OTP release, six apps]")
+    d = Diagram("c4-components.svg", "mcl-whiteboard components", 1160, 1726)
+    d.bound(16, 40, 1128, 1230, "mcl-whiteboard [Container: one OTP release, six apps]")
 
     d.box("b-cmp", 32, 70, 540, 120, "MclWhiteboard.Application", "[OTP application]",
           ["Opens the board store from MclWhiteboard.Service.event_store/0, then calls",
@@ -221,6 +359,10 @@ def components():
            "CursorMeshSubscriber and PeerDepartedMeshSubscriber take other hosts' facts.",
            "Ephemeral by design: a cursor is never stored."], code=True)
 
+    d.text("t-bound", 32, 934, "Planned by the storming plan (macula-services/mcl-whiteboard#13), not built yet")
+    for x, y, name, pkg, desc in PLANNED_COMPONENTS:
+        d.box("b-plan", x, y, 260, 120, name, pkg, desc)
+
     d.edge("M200 190V238"); d.text("t-rel", 208, 230, "boots with")
     d.edge("M200 374V422"); d.text("t-rel", 208, 414, "start/1 starts")
     d.edge("M572 132H588"); d.text("t-rel", 570, 124, "opens first", anchor="end")
@@ -230,33 +372,33 @@ def components():
     d.edge("M740 390V422"); d.text("t-rel", 748, 414, "its events are projected")
     d.edge("M740 558V590"); d.text("t-rel", 748, 582, "every QRY desk reads through it")
 
-    d.box("b-mac", 32, 958, 352, 136, "mcl_om", "[library, ~> 1.6]",
+    d.box("b-mac", 32, 1302, 352, 136, "mcl_om", "[library, ~> 1.6]",
           ["boot/1: joins the realm, dials the",
            "pinned stations, serves /health on",
            "MCL_HEALTH_SOCKET, and keeps this",
            "service's standing subscriptions."], code=True)
-    d.box("b-mac", 404, 958, 352, 136, "macula", "[library, ~> 18.0]",
+    d.box("b-mac", 404, 1302, 352, 136, "macula", "[library, ~> 18.0]",
           ["QUIC transport, the pubsub the",
            "emitters and the queries use, and",
            "the signed records the mesh DHT",
            "holds."], code=True)
-    d.box("b-cmp", 776, 958, 352, 136, "evoq / reckon_evoq / reckon_db", "[libraries, ~> 1.24 / ~> 2.8 / ~> 5.11]",
+    d.box("b-cmp", 776, 1302, 352, 136, "evoq / reckon_evoq / reckon_db", "[libraries, ~> 1.24 / ~> 2.8 / ~> 5.11]",
           ["The board aggregate's event sourcing,",
            "its store subscription, and the store",
            "the projections replay from: one",
            "reckon-db instance, no indexes."], code=True)
-    d.box("b-ext", 40, 1126, 1080, 136, "The host environment", "[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]",
+    d.box("b-ext", 40, 1470, 1080, 136, "The host environment", "[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]",
           ["config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_SOCKET, MCL_HTTP_PORT (4000), MCL_HTTP_IP, MCL_HTTP_ORIGINS,",
            "MCL_REALM_NAME, MCL_REALM_KEY and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and",
            "MCL_BOX at boot; the release's env.sh requires RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard holds the board store,",
            "/etc/mcl/secrets holds identity.key, which the realm's delegation is bound to."], code=True)
-    d.edge("M1128 160H1140V926H950V958"); d.text("t-rel", 1120, 222, "events in and out, through evoq", anchor="end")
-    d.text("t-desc", 40, 1288, "The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every")
-    d.text("t-desc", 40, 1306, "standing mesh subscription. A start-up ordering test holds that order, and a test fails any event handler that declares no replay policy.")
-    d.legend(1342)
+    d.edge("M1128 160H1140V1270H950V1302"); d.text("t-rel", 1120, 222, "events in and out, through evoq", anchor="end")
+    d.text("t-desc", 40, 1632, "The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every")
+    d.text("t-desc", 40, 1650, "standing mesh subscription. A start-up ordering test holds that order, and a test fails any event handler that declares no replay policy.")
+    d.legend(1686)
     d.write()
 
 
 if __name__ == "__main__":
-    for make in (context, components):
+    for make in (context, container, components):
         make()
