@@ -89,8 +89,9 @@ RUN useradd --create-home --shell /bin/bash app
 # here becomes a root-owned volume the release cannot write.
 #   /var/lib/mcl-whiteboard  the board store (reckon-db) and read model
 #   /etc/mcl/secrets         the node identity key
-RUN mkdir -p /var/lib/mcl-whiteboard /etc/mcl/secrets && \
-    chown -R app:app /var/lib/mcl-whiteboard /etc/mcl/secrets
+#   /run/mcl                 the /health Unix socket (mcl_om's health_socket)
+RUN mkdir -p /var/lib/mcl-whiteboard /etc/mcl/secrets /run/mcl && \
+    chown -R app:app /var/lib/mcl-whiteboard /etc/mcl/secrets /run/mcl
 
 COPY --from=builder --chown=app:app /app/_build/prod/rel/mcl_whiteboard ./
 
@@ -98,12 +99,12 @@ USER app
 
 ENV MCL_DATA_DIR=/var/lib/mcl-whiteboard
 ENV MCL_IDENTITY_KEY_PATH=/etc/mcl/secrets/identity.key
-ENV MCL_HEALTH_PORT=8491
 ENV MCL_HTTP_PORT=4000
 VOLUME ["/var/lib/mcl-whiteboard", "/etc/mcl/secrets"]
-EXPOSE 8491 4000
+# /health is a Unix socket, not a port; 4000 is the web UI.
+EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS "http://127.0.0.1:${MCL_HEALTH_PORT}/health" || exit 1
+    CMD curl -fsS --unix-socket /run/mcl/health.sock http://localhost/health || exit 1
 
 CMD ["bin/mcl_whiteboard", "start"]

@@ -13,6 +13,7 @@ defmodule QueryBoards.ListBoardsOverMesh.ListBoardsOverMesh do
   # function blocks its caller for up to timeout_ms, which would freeze
   # a LiveView's own mailbox for that whole window if called directly
   # from mount/handle_event.
+  alias GuideBoardLifecycle.WhiteboardTopic
   alias QueryBoards.AnswerBoardListQueries
   alias QueryBoards.MeshReplyId
 
@@ -25,7 +26,11 @@ defmodule QueryBoards.ListBoardsOverMesh.ListBoardsOverMesh do
     end
   end
 
-  defp query(pool, realm, timeout_ms) do
+  # Public only so a test can hand macula_subscriber its own `subscribe`
+  # function and read the options the reply subscription is made with. The
+  # sources are merged LAST, so nothing passed here can replace them.
+  @doc false
+  def query(pool, realm, timeout_ms, subscriber_opts \\ %{}) do
     request_id = MeshReplyId.mint()
 
     case :macula_subscriber.start_link(
@@ -33,7 +38,8 @@ defmodule QueryBoards.ListBoardsOverMesh.ListBoardsOverMesh do
            pool,
            realm,
            AnswerBoardListQueries.reply_topic(),
-           {self(), request_id}
+           {self(), request_id},
+           Map.merge(subscriber_opts, %{sources: WhiteboardTopic.sources()})
          ) do
       {:ok, subscriber} ->
         publish_query(request_id)

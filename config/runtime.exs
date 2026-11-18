@@ -8,7 +8,6 @@ import Config
 # deployed container sets them for real: see deploy/docker-compose.yml for
 # the run contract. Fleet placement lives in macula-io/macula-fleet.
 data_dir = System.get_env("MCL_DATA_DIR", "/tmp/mcl-whiteboard-dev")
-health_port = String.to_integer(System.get_env("MCL_HEALTH_PORT", "8491"))
 
 # THE REALM NAME IS THE ONE INPUT; THE TAG IS DERIVED FROM IT HERE.
 # Topics carry the realm NAME as their first segment (macula_topic:app_fact/6)
@@ -40,7 +39,19 @@ config :mcl_om,
     String.to_charlist(
       System.get_env("MCL_IDENTITY_KEY_PATH", Path.join([data_dir, "identity", "identity.key"]))
     ),
-  health_port: health_port,
+  # /health on a Unix socket, not a port (mcl_om 0.39): the image's
+  # HEALTHCHECK reaches it with curl --unix-socket, and no TCP listener is
+  # opened just to be health-checked. /run is root's, so a TEST run takes a
+  # socket in its own data dir; a local boot can override either with
+  # MCL_HEALTH_SOCKET.
+  health_socket:
+    System.get_env(
+      "MCL_HEALTH_SOCKET",
+      if(config_env() == :test,
+        do: Path.join(data_dir, "health.sock"),
+        else: "/run/mcl/health.sock"
+      )
+    ),
   capability_topic: "_mesh.cap.",
   org: org,
   # The claim's labels (service name, box) are not set here: mcl_om reads

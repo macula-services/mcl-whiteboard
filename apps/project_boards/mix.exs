@@ -37,7 +37,7 @@ defmodule ProjectBoards.MixProject do
       {:guide_board_lifecycle, in_umbrella: true},
       # :macula_subscriber is the behaviour the mesh subscribers implement,
       # on wire 1.0 (macula 16), the line every app here now shares.
-      {:macula, "~> 16.0"}
+      {:macula, "~> 18.0"}
     ]
   end
 end

@@ -40,8 +40,8 @@ defmodule TrackPresence.MixProject do
       # wire, so this is taken on purpose, with the facade that declares it. The
       # floor names 1.4 because `~> 1.0` also admits 1.3.0, which requires macula
       # `~> 15.6` (macula-codebase-checks#14).
-      {:mcl_om, "~> 1.4"},
-      {:macula, "~> 16.0"}
+      {:mcl_om, "~> 1.6"},
+      {:macula, "~> 18.0"}
     ]
   end
 end

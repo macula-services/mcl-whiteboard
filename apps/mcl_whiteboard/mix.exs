@@ -31,7 +31,7 @@ defmodule MclWhiteboard.MixProject do
       # floats onto a new wire by itself (mcl-om#27); a 1.0 node neither reads
       # a 14 node's frames nor handshakes with it, so this is taken on
       # purpose.
-      {:mcl_om, "~> 1.4"},
+      {:mcl_om, "~> 1.6"},
       # THIS SERVICE'S OWN EVENT STORE. mcl_om opens no store and starts no
       # reckon-db or evoq application since 0.35.0 (mcl-om#10):
       # MclWhiteboard.Application opens the store in start/2 before

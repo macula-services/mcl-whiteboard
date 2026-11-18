@@ -18,6 +18,7 @@ defmodule MclWhiteboard.Service do
   alias GuideBoardLifecycle.LeaveBoard.PeerDepartedV1ToMesh
   alias GuideBoardLifecycle.ShapeLifecycle.ShapeLifecycleV1ToMesh
   alias GuideBoardLifecycle.ShapeMutation.AnswerShapeMutationRequests
+  alias GuideBoardLifecycle.WhiteboardTopic
   alias ProjectBoards.BoardLifecycleMeshSubscriber
   alias ProjectBoards.ShapeLifecycleMeshSubscriber
   alias QueryBoards.AnswerBoardListQueries
@@ -64,19 +65,28 @@ defmodule MclWhiteboard.Service do
   # handler named here is running before boot declares it. One
   # {topic, handler, args} per topic; each topic comes from the module that
   # owns it.
+  #
+  # EVERY ONE NAMES ITS SOURCES (macula 18 refuses one that names none): the
+  # nodes the realm delegated this service's org, WhiteboardTopic.sources/0.
+  # A wrong source fails silently -- the subscription runs and hears nothing
+  # -- so the test pins it on every entry.
   @impl true
   def subscriptions do
-    for(t <- BoardLifecycleV1ToMesh.topics(), do: {t, BoardLifecycleMeshSubscriber, []}) ++
-      for(t <- ShapeLifecycleV1ToMesh.topics(), do: {t, ShapeLifecycleMeshSubscriber, []}) ++
-      [
-        {AnswerDrawStrokeRequests.topic(), AnswerDrawStrokeRequests, []},
-        {AnswerShapeMutationRequests.topic(), AnswerShapeMutationRequests, []},
-        {AnswerLeaveBoardRequests.topic(), AnswerLeaveBoardRequests, []},
-        {AnswerBoardListQueries.topic(), AnswerBoardListQueries, []},
-        {AnswerBoardSnapshotQueries.topic(), AnswerBoardSnapshotQueries, []},
-        {CursorMeshSubscriber.topic(), CursorMeshSubscriber, []},
-        {PeerDepartedV1ToMesh.topic(), PeerDepartedMeshSubscriber, []}
-      ]
+    pairs =
+      for(t <- BoardLifecycleV1ToMesh.topics(), do: {t, BoardLifecycleMeshSubscriber}) ++
+        for(t <- ShapeLifecycleV1ToMesh.topics(), do: {t, ShapeLifecycleMeshSubscriber}) ++
+        [
+          {AnswerDrawStrokeRequests.topic(), AnswerDrawStrokeRequests},
+          {AnswerShapeMutationRequests.topic(), AnswerShapeMutationRequests},
+          {AnswerLeaveBoardRequests.topic(), AnswerLeaveBoardRequests},
+          {AnswerBoardListQueries.topic(), AnswerBoardListQueries},
+          {AnswerBoardSnapshotQueries.topic(), AnswerBoardSnapshotQueries},
+          {CursorMeshSubscriber.topic(), CursorMeshSubscriber},
+          {PeerDepartedV1ToMesh.topic(), PeerDepartedMeshSubscriber}
+        ]
+
+    for {topic, module} <- pairs,
+        do: %{topic: topic, module: module, args: [], sources: WhiteboardTopic.sources()}
   end
 
   # CMD/PRJ wiring: THE STORE THIS SERVICE OWNS, described here and opened by
