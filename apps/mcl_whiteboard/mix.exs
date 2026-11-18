@@ -4,7 +4,7 @@ defmodule MclWhiteboard.MixProject do
   def project do
     [
       app: :mcl_whiteboard,
-      version: "0.1.0",
+      version: "0.2.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -26,11 +26,10 @@ defmodule MclWhiteboard.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # 1.4 is the macula-16 line on wire 1.0, the fleet's since the flag day
-      # (2026-10-19). The major moves with the wire so no ~> 0.x service
-      # floats onto a new wire by itself (mcl-om#27); a 1.0 node neither reads
-      # a 14 node's frames nor handshakes with it, so this is taken on
-      # purpose.
+      # 1.6 is the first mcl_om on macula 18, which refuses a subscription
+      # that names no sources (mcl-whiteboard#15). The major moves with the
+      # wire so no ~> 0.x service floats onto a new wire by itself
+      # (mcl-om#27), so this is taken on purpose.
       {:mcl_om, "~> 1.6"},
       # THIS SERVICE'S OWN EVENT STORE. mcl_om opens no store and starts no
       # reckon-db or evoq application since 0.35.0 (mcl-om#10):

@@ -230,12 +230,12 @@ def components():
     d.edge("M740 390V422"); d.text("t-rel", 748, 414, "its events are projected")
     d.edge("M740 558V590"); d.text("t-rel", 748, 582, "every QRY desk reads through it")
 
-    d.box("b-mac", 32, 958, 352, 136, "mcl_om", "[library, ~> 1.4]",
+    d.box("b-mac", 32, 958, 352, 136, "mcl_om", "[library, ~> 1.6]",
           ["boot/1: joins the realm, dials the",
            "pinned stations, serves /health on",
-           "MCL_HEALTH_PORT, and keeps this",
+           "MCL_HEALTH_SOCKET, and keeps this",
            "service's standing subscriptions."], code=True)
-    d.box("b-mac", 404, 958, 352, 136, "macula", "[library, ~> 16.0, wire 1.0]",
+    d.box("b-mac", 404, 958, 352, 136, "macula", "[library, ~> 18.0]",
           ["QUIC transport, the pubsub the",
            "emitters and the queries use, and",
            "the signed records the mesh DHT",
@@ -246,10 +246,10 @@ def components():
            "the projections replay from: one",
            "reckon-db instance, no indexes."], code=True)
     d.box("b-ext", 40, 1126, 1080, 136, "The host environment", "[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]",
-          ["config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_PORT (8491), MCL_HTTP_PORT (4000), MCL_REALM_NAME, MCL_REALM_KEY",
-           "and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and MCL_BOX at boot; the release's env.sh",
-           "requires RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard holds the board store, /etc/mcl/secrets holds identity.key, which the realm's",
-           "delegation is bound to."], code=True)
+          ["config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_SOCKET, MCL_HTTP_PORT (4000), MCL_HTTP_IP, MCL_HTTP_ORIGINS,",
+           "MCL_REALM_NAME, MCL_REALM_KEY and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and",
+           "MCL_BOX at boot; the release's env.sh requires RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard holds the board store,",
+           "/etc/mcl/secrets holds identity.key, which the realm's delegation is bound to."], code=True)
     d.edge("M1128 160H1140V926H950V958"); d.text("t-rel", 1120, 222, "events in and out, through evoq", anchor="end")
     d.text("t-desc", 40, 1288, "The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every")
     d.text("t-desc", 40, 1306, "standing mesh subscription. A start-up ordering test holds that order, and a test fails any event handler that declares no replay policy.")

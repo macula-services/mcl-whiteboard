@@ -3,20 +3,43 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [SemVer](https://semver.org/).
 
-## Unreleased
+## [0.2.0] - 2026-11-18
 
+### Security
+
+- **The web UI listens on loopback unless the box says otherwise**
+  (mcl-whiteboard#15). The UI has no login: whoever opens its LiveView socket
+  acts as this node. `MCL_HTTP_IP` (default `127.0.0.1`) is where it listens;
+  beyond loopback, `MCL_HTTP_ORIGINS` (comma-separated `//host:port`) must name
+  the origins the LAN reaches it by. The socket's `check_origin` is the local
+  origins on its port plus those, and is no longer turned off.
+- **Every request must name an allowed host, the socket upgrade included.**
+  `MclWhiteboardWeb.AllowedHosts` answers 400 to any other `Host`, so a name an
+  attacker rebinds to the box's address cannot read a page or open a socket.
+  It wraps the endpoint's `call/2`, because Phoenix dispatches sockets before
+  any endpoint plug.
+- **The release refuses to boot, by name**, on an `MCL_HTTP_IP` that does not
+  parse, on an address beyond loopback with no `MCL_HTTP_ORIGINS`, and on an
+  origin that is not `//host:port` (a wildcard above all, which Phoenix would
+  read as a whole domain).
+
+### Changed
+
+- **macula 18 and `mcl_om` 1.6** (mcl-whiteboard#15). macula 18 refuses a
+  subscription that names no sources. Every subscription here, every one the
+  service declares and the reply subscriptions of the two mesh queries, takes
+  `{org, <this service's org>}`: the nodes the realm delegated mcl-whiteboard.
+  The value is built once, in `WhiteboardTopic.sources/0`; the queries merge it
+  last, so nothing a caller passes can replace it.
+- **`/health` is served on a Unix socket**, `/run/mcl/health.sock`
+  (`MCL_HEALTH_SOCKET`), not a TCP port. `MCL_HEALTH_PORT` is gone, and port
+  8491 is no longer opened. The image's `HEALTHCHECK` uses `curl --unix-socket`.
 - **The base library is macula 16** (macula-codebase-checks#4): the floors move
   `~> 15.6` to `~> 16.0` and `mcl_om` to `~> 1.4`, the release whose own base
   is macula 16 (`~> 1.0` also admits 1.3.0, which requires macula `~> 15.6`:
   macula-codebase-checks#14). 16.0 keeps wire 1.0, so this service still
   speaks to every wire 1.0 box; what it adds is the revocation bound
   (macula#118). This service gates no overlay and issues no endorsement.
-
-
-## [Unreleased]
-
-### Changed
-
 - **Wire 1.0: `mcl_om` 1.2 and macula 15.6, the line the fleet runs since
   the flag day (2026-10-19).** A wire 1.0 node neither reads a 14 node's
   frames nor completes a handshake with it, so this is taken on purpose: the
