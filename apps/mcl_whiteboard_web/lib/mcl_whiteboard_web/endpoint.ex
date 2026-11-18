@@ -1,5 +1,7 @@
 defmodule MclWhiteboardWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :mcl_whiteboard_web
+  # The host check wraps everything, socket dispatch included (#15).
+  @before_compile MclWhiteboardWeb.AllowedHosts
 
   @session_options [
     store: :cookie,

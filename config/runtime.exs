@@ -87,6 +87,73 @@ config :evoq,
 
 http_port = String.to_integer(System.get_env("MCL_HTTP_PORT", "4000"))
 
+# WHERE THE WEB UI LISTENS, AND WHO MAY USE IT (mcl-whiteboard#15).
+#
+# The UI has no login: whoever opens its LiveView socket acts as this node,
+# and every write goes over that socket. So:
+#   - it listens on loopback unless the box says otherwise (MCL_HTTP_IP);
+#   - the socket answers only the local origins on its port plus the ones
+#     the box names (MCL_HTTP_ORIGINS, comma separated, //host:port);
+#   - every request, the socket upgrade included, must name one of those
+#     hosts (MclWhiteboardWeb.AllowedHosts), so a name an attacker rebinds to
+#     the box's address gets 400 and cannot even read a page.
+# Three settings refuse the boot, by name, rather than run a UI that would
+# not do what the box meant: an address that does not parse; an address
+# beyond loopback with no origins (every LAN socket would be refused, in a
+# reconnect loop); and an origin that is not //host:port, a wildcard above
+# all, which Phoenix would read as a whole domain.
+http_ip_text = System.get_env("MCL_HTTP_IP", "127.0.0.1")
+
+http_ip =
+  case :inet.parse_address(String.to_charlist(http_ip_text)) do
+    {:ok, ip} ->
+      ip
+
+    {:error, _} ->
+      raise ArgumentError, "MCL_HTTP_IP=#{inspect(http_ip_text)} is not an IP address"
+  end
+
+http_origins =
+  System.get_env("MCL_HTTP_ORIGINS", "")
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.trim/1)
+  |> Enum.reject(&(&1 == ""))
+
+origin_hosts =
+  for origin <- http_origins do
+    case Regex.run(~r<\A//([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\]):([0-9]{1,5})\z>, origin) do
+      [_, host, _port] ->
+        host
+
+      nil ->
+        raise ArgumentError,
+              "MCL_HTTP_ORIGINS entry #{inspect(origin)} is not //host:port " <>
+                "(no scheme, no path, no wildcard)"
+    end
+  end
+
+loopback? =
+  case http_ip do
+    {127, _, _, _} -> true
+    {0, 0, 0, 0, 0, 0, 0, 1} -> true
+    _ -> false
+  end
+
+if not loopback? and http_origins == [] do
+  raise ArgumentError,
+        "MCL_HTTP_IP=#{inspect(http_ip_text)} serves beyond loopback, but MCL_HTTP_ORIGINS " <>
+          "is empty: every socket from the LAN would be refused. Name the origins the LAN " <>
+          "reaches the UI by, as //host:port"
+end
+
+local_hosts = ["localhost", "127.0.0.1", "[::1]"]
+check_origin = Enum.map(local_hosts, &"//#{&1}:#{http_port}") ++ http_origins
+# A request's host is compared in its bare form, without IPv6 brackets
+# (MclWhiteboardWeb.AllowedHosts strips them from the request too).
+allowed_hosts =
+  for host <- local_hosts ++ origin_hosts,
+      do: host |> String.trim_leading("[") |> String.trim_trailing("]")
+
 # Signs the LiveView socket. A release REQUIRES it: a prod node that fell
 # back to the fixed development value below would sign with a string anyone
 # can read in this file. Dev and test get that value, which protects nothing
@@ -102,6 +169,8 @@ secret_key_base =
   end
 
 config :mcl_whiteboard_web, MclWhiteboardWeb.Endpoint,
-  http: [ip: {0, 0, 0, 0}, port: http_port],
+  http: [ip: http_ip, port: http_port],
+  check_origin: check_origin,
+  allowed_hosts: allowed_hosts,
   server: true,
   secret_key_base: secret_key_base
