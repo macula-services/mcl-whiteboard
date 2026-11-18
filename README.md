@@ -7,7 +7,7 @@ on other nodes find that host's boards over the mesh and draw on them live. If t
 host goes offline, its boards go with it. That is the deliberate trade for not
 needing anyone else's server.
 
-It runs on macula 16 (wire 1.0), post-quantum only, and stands on
+It runs on macula 18, post-quantum only, and stands on
 [`mcl_om`](https://github.com/macula-services/mcl-om), the substrate shared by every
 `macula-services/mcl-*` service.
 
@@ -141,7 +141,10 @@ MCL_DATA_DIR=/tmp/mcl-whiteboard-dev mix phx.server
 | `MACULA_STATION_SEEDS` / `MACULA_STATION_NODE_IDS` | none | Station hosts and their pinned node ids, comma-separated, paired by position |
 | `MCL_DATA_DIR` | `/tmp/mcl-whiteboard-dev` | Board store and read models |
 | `MCL_IDENTITY_KEY_PATH` | `$MCL_DATA_DIR/identity/identity.key` | The node identity key, generated on first boot |
-| `MCL_HEALTH_PORT` / `MCL_HTTP_PORT` | `8491` / `4000` | Health endpoint and web UI |
+| `MCL_HTTP_PORT` | `4000` | The web UI |
+| `MCL_HTTP_IP` | `127.0.0.1` | The address the web UI listens on. Beyond loopback it needs `MCL_HTTP_ORIGINS`, or the boot is refused |
+| `MCL_HTTP_ORIGINS` | none | The origins the LAN reaches the UI by, comma-separated `//host:port` (no scheme, path or wildcard). Every request, the socket upgrade included, must name one of these hosts or a local one, or it gets 400 |
+| `MCL_HEALTH_SOCKET` | `/run/mcl/health.sock` | The Unix socket `/health` is served on; no TCP port is opened for it |
 | `MCL_SERVICE_NAME` / `MCL_BOX` | the service's name / none | Labels the realm operator sees; read by mcl_om |
 | `SECRET_KEY_BASE` | dev value | Signs the LiveView socket. Required in a release |
 | `RELEASE_COOKIE` | none | The box's own Erlang cookie. Required in a release; distribution is loopback-only |

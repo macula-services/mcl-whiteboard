@@ -4,7 +4,7 @@ defmodule QueryBoards.MixProject do
   def project do
     [
       app: :query_boards,
-      version: "0.1.0",
+      version: "0.2.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -36,12 +36,12 @@ defmodule QueryBoards.MixProject do
       {:guide_board_lifecycle, in_umbrella: true},
       # For the mesh queries: :mcl_om.mesh_handles/0 for the per-call reply
       # subscription, :mcl_om_pubsub for every publish.
-      # Wire 1.0 on macula 16 (macula-codebase-checks#4): the major moves with the
-      # wire, so this is taken on purpose, with the facade that declares it. The
-      # floor names 1.4 because `~> 1.0` also admits 1.3.0, which requires macula
-      # `~> 15.6` (macula-codebase-checks#14).
-      {:mcl_om, "~> 1.4"},
-      {:macula, "~> 16.0"}
+      # macula 18 (mcl-whiteboard#15): it refuses a subscription that names no
+      # sources, and mcl_om 1.6 is the first release on it, with the
+      # subscription map that names them. The major moves with the wire, so
+      # this is taken on purpose, with the facade that declares it.
+      {:mcl_om, "~> 1.6"},
+      {:macula, "~> 18.0"}
     ]
   end
 end

@@ -7,7 +7,10 @@ defmodule MclWhiteboard.ServiceTest do
 
   describe "the mesh subscriptions this service declares" do
     test "name every topic a peer publishes to, each once, with its handler" do
-      assert Enum.sort(for {topic, mod, []} <- Service.subscriptions(), do: {topic, mod}) ==
+      assert Enum.sort(
+               for %{topic: topic, module: mod, args: []} <- Service.subscriptions(),
+                   do: {topic, mod}
+             ) ==
                Enum.sort(
                  for(
                    t <- GuideBoardLifecycle.BoardLifecycleV1ToMesh.topics(),
@@ -38,15 +41,31 @@ defmodule MclWhiteboard.ServiceTest do
     # mcl_om keys one supervised subscriber per topic; a duplicate would
     # silently drop one of the two handlers.
     test "never name a topic twice" do
-      topics = for {topic, _mod, _args} <- Service.subscriptions(), do: topic
+      topics = for %{topic: topic} <- Service.subscriptions(), do: topic
       assert topics == Enum.uniq(topics)
     end
 
     test "only hand events to modules that can take them" do
-      for {_topic, mod, _args} <- Service.subscriptions() do
+      for %{module: mod} <- Service.subscriptions() do
         assert Code.ensure_loaded?(mod) and function_exported?(mod, :handle_event, 4),
                inspect(mod)
       end
+    end
+  end
+
+  # mcl-whiteboard#15, T8: macula 18 refuses a subscription that names no
+  # source, and a source that refuses the right publisher fails SILENTLY (the
+  # subscription runs and hears nothing). Every entry takes the nodes the realm
+  # delegated this service's org. The expected value is read from the org mcl_om
+  # is configured with, not from WhiteboardTopic.sources/0, so a mutant there is
+  # seen too.
+  test "every subscription takes only the nodes the realm delegated this service's org" do
+    org_nodes = {:org, Application.fetch_env!(:mcl_om, :org)}
+    subscriptions = Service.subscriptions()
+    assert subscriptions != []
+
+    for subscription <- subscriptions do
+      assert Map.fetch(subscription, :sources) == {:ok, org_nodes}, inspect(subscription)
     end
   end
 

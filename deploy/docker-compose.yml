@@ -23,8 +23,9 @@ services:
     # HOST NETWORKING IS NOT LAZINESS. macula stations are reachable over IPv6
     # only, and a default bridge has no IPv6, so a bridged container connects
     # to nothing while looking fine. Host networking also means a port already
-    # bound on this box fails SILENTLY: pick MCL_HEALTH_PORT and MCL_HTTP_PORT
-    # per box.
+    # bound on this box fails SILENTLY: pick MCL_HTTP_PORT per box.
+    # /health is a Unix socket inside the container (MCL_HEALTH_SOCKET), so it
+    # takes no port.
     network_mode: host
     volumes:
       # The board store: every board's event history. Losing it loses the
@@ -50,8 +51,13 @@ services:
       # provider-authorization row.
       - MCL_SERVICE_NAME=${MCL_SERVICE_NAME:-mcl-whiteboard}
       - MCL_BOX=${MCL_BOX:-}
-      - MCL_HEALTH_PORT=${MCL_HEALTH_PORT:-8491}
       - MCL_HTTP_PORT=${MCL_HTTP_PORT:-4000}
+      # The UI has no login: whoever reaches it acts as this node. It listens
+      # on loopback unless MCL_HTTP_IP says otherwise; beyond loopback,
+      # MCL_HTTP_ORIGINS must name every //host:port the LAN reaches it by,
+      # or the release refuses to boot.
+      - MCL_HTTP_IP=${MCL_HTTP_IP:-127.0.0.1}
+      - MCL_HTTP_ORIGINS=${MCL_HTTP_ORIGINS:-}
       # Erlang distribution is loopback-only; the cookie is this box's own
       # (the release refuses to start without one).
       - RELEASE_COOKIE=${RELEASE_COOKIE:?set RELEASE_COOKIE to this box's own cookie}

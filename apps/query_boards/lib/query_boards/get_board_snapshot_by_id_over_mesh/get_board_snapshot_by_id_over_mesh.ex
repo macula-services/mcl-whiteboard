@@ -22,6 +22,7 @@ defmodule QueryBoards.GetBoardSnapshotByIdOverMesh.GetBoardSnapshotByIdOverMesh 
   # shape back, and a page reload after a join reads locally with no
   # repeat mesh round trip.
   alias GuideBoardLifecycle.BoardStatus
+  alias GuideBoardLifecycle.WhiteboardTopic
   alias ProjectBoards.Store
   alias QueryBoards.AnswerBoardSnapshotQueries
   alias QueryBoards.GetBoardSnapshotById.GetBoardSnapshotById
@@ -36,7 +37,11 @@ defmodule QueryBoards.GetBoardSnapshotByIdOverMesh.GetBoardSnapshotByIdOverMesh 
     end
   end
 
-  defp query(pool, realm, board_id, timeout_ms) do
+  # Public only so a test can hand macula_subscriber its own `subscribe`
+  # function and read the options the reply subscription is made with. The
+  # sources are merged LAST, so nothing passed here can replace them.
+  @doc false
+  def query(pool, realm, board_id, timeout_ms, subscriber_opts \\ %{}) do
     request_id = MeshReplyId.mint()
 
     case :macula_subscriber.start_link(
@@ -44,7 +49,8 @@ defmodule QueryBoards.GetBoardSnapshotByIdOverMesh.GetBoardSnapshotByIdOverMesh 
            pool,
            realm,
            AnswerBoardSnapshotQueries.reply_topic(),
-           {self(), request_id}
+           {self(), request_id},
+           Map.merge(subscriber_opts, %{sources: WhiteboardTopic.sources()})
          ) do
       {:ok, subscriber} ->
         publish_query(board_id, request_id)

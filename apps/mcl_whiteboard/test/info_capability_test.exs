@@ -15,15 +15,16 @@ defmodule MclWhiteboard.InfoCapabilityTest do
     assert text(reply, :org) == "mcl-whiteboard"
     {:ok, vsn} = :application.get_key(:mcl_whiteboard, :vsn)
     assert text(reply, :version) == to_string(vsn)
-    # THE LINE THIS IMAGE RUNS ON, as a floor rather than a range: 1.4 is
-    # wire 1.0 (macula 16), and a node below it cannot handshake with the
-    # fleet. A range such as "~> 0.31" asserts the floor by construction and
-    # goes red on the very bump it exists to welcome; a comparison against
-    # the number survives every later release in the line.
+    # THE LINE THIS IMAGE RUNS ON, as a floor rather than a range: 1.6 is
+    # the first on macula 18, and a node below it names no subscription
+    # sources, which macula 18 refuses. A range such as "~> 0.31" asserts
+    # the floor by construction and goes red on the very bump it exists to
+    # welcome; a comparison against the number survives every later release
+    # in the line.
     #
     # reckon_evoq 2.7.2 reads snapshots back whole (2.7.0 rebuilt a reloaded
     # aggregate from nothing).
-    assert Version.compare(text(reply, :mcl_om_version), "1.4.0") != :lt
+    assert Version.compare(text(reply, :mcl_om_version), "1.6.0") != :lt
     _ = :application.load(:reckon_evoq)
     {:ok, reckon_evoq} = :application.get_key(:reckon_evoq, :vsn)
     assert Version.match?(to_string(reckon_evoq), ">= 2.7.2")

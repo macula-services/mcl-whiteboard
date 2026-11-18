@@ -127,14 +127,14 @@
 <text class="t-rel" x="748" y="582">every QRY desk reads through it</text>
 <rect class="b-mac" x="32" y="958" width="352" height="136" rx="10"/>
 <text class="t-code" x="48" y="986">mcl_om</text>
-<text class="t-type" x="48" y="1004">[library, ~&gt; 1.4]</text>
+<text class="t-type" x="48" y="1004">[library, ~&gt; 1.6]</text>
 <text class="t-desc" x="48" y="1028">boot/1: joins the realm, dials the</text>
 <text class="t-desc" x="48" y="1044">pinned stations, serves /health on</text>
-<text class="t-desc" x="48" y="1060">MCL_HEALTH_PORT, and keeps this</text>
+<text class="t-desc" x="48" y="1060">MCL_HEALTH_SOCKET, and keeps this</text>
 <text class="t-desc" x="48" y="1076">service's standing subscriptions.</text>
 <rect class="b-mac" x="404" y="958" width="352" height="136" rx="10"/>
 <text class="t-code" x="420" y="986">macula</text>
-<text class="t-type" x="420" y="1004">[library, ~&gt; 16.0, wire 1.0]</text>
+<text class="t-type" x="420" y="1004">[library, ~&gt; 18.0]</text>
 <text class="t-desc" x="420" y="1028">QUIC transport, the pubsub the</text>
 <text class="t-desc" x="420" y="1044">emitters and the queries use, and</text>
 <text class="t-desc" x="420" y="1060">the signed records the mesh DHT</text>
@@ -149,10 +149,10 @@
 <rect class="b-ext" x="40" y="1126" width="1080" height="136" rx="10"/>
 <text class="t-code" x="56" y="1154">The host environment</text>
 <text class="t-type" x="56" y="1172">[set on the host; read by config/runtime.exs, mcl_om and the release's env.sh]</text>
-<text class="t-desc" x="56" y="1196">config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_PORT (8491), MCL_HTTP_PORT (4000), MCL_REALM_NAME, MCL_REALM_KEY</text>
-<text class="t-desc" x="56" y="1212">and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and MCL_BOX at boot; the release's env.sh</text>
-<text class="t-desc" x="56" y="1228">requires RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard holds the board store, /etc/mcl/secrets holds identity.key, which the realm's</text>
-<text class="t-desc" x="56" y="1244">delegation is bound to.</text>
+<text class="t-desc" x="56" y="1196">config/runtime.exs reads MCL_DATA_DIR, MCL_IDENTITY_KEY_PATH, MCL_HEALTH_SOCKET, MCL_HTTP_PORT (4000), MCL_HTTP_IP, MCL_HTTP_ORIGINS,</text>
+<text class="t-desc" x="56" y="1212">MCL_REALM_NAME, MCL_REALM_KEY and SECRET_KEY_BASE. mcl_om reads MACULA_STATION_SEEDS, MACULA_STATION_NODE_IDS, MCL_SERVICE_NAME and</text>
+<text class="t-desc" x="56" y="1228">MCL_BOX at boot; the release's env.sh requires RELEASE_COOKIE. Two volumes: /var/lib/mcl-whiteboard holds the board store,</text>
+<text class="t-desc" x="56" y="1244">/etc/mcl/secrets holds identity.key, which the realm's delegation is bound to.</text>
 <path class="edge" d="M1128 160H1140V926H950V958" marker-end="url(#a)"/>
 <text class="t-rel" x="1120" y="222" text-anchor="end">events in and out, through evoq</text>
 <text class="t-desc" x="40" y="1288">The departments start before mcl_whiteboard, whose start/2 opens the store and only then runs :mcl_om.boot/1, which declares every</text>

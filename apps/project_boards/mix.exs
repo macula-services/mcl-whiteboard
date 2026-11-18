@@ -4,7 +4,7 @@ defmodule ProjectBoards.MixProject do
   def project do
     [
       app: :project_boards,
-      version: "0.1.0",
+      version: "0.2.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -36,8 +36,8 @@ defmodule ProjectBoards.MixProject do
       # guide_board_lifecycle, which owns their topics.
       {:guide_board_lifecycle, in_umbrella: true},
       # :macula_subscriber is the behaviour the mesh subscribers implement,
-      # on wire 1.0 (macula 16), the line every app here now shares.
-      {:macula, "~> 16.0"}
+      # on macula 18, the line every app here now shares.
+      {:macula, "~> 18.0"}
     ]
   end
 end
