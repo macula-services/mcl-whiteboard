@@ -1,7 +1,12 @@
 # mcl-whiteboard architecture: C4 model
 
-*This exists so a reader can see what mcl-whiteboard talks to, and what it is
-made of, without reading it.*
+*This exists so a reader can see what mcl-whiteboard talks to, what it runs as,
+and what it is made of, today and in the storming board the plan builds
+(macula-services/mcl-whiteboard#13), without reading the code.*
+
+Three diagrams: the Context, the Containers and the Components. A dashed box is
+**planned**: the storming plan adds it, and the box names the package that
+builds it. Everything drawn solid is built in 0.2.0.
 
 **Status: six apps in one release, no central server.** A host runs the service
 on their own node and serves the canvas on 4000. Boards are hosted by the node
@@ -17,16 +22,37 @@ every service, both open.
 | Element | Kind | Role |
 | --- | --- | --- |
 | mcl-whiteboard | In scope | Hosts boards, serves the canvas on 4000, publishes every board and shape fact, and relays a remote peer's writes to the board's host. One OTP release, six apps, one container |
-| Board host | Person | Runs the service on their own node and opens `/boards` in a browser on port 4000. Their node is the authority for the boards it hosts |
-| Collaborator | Person | Finds a board over the mesh, gets a snapshot, then live updates, and draws on it; the writes are relayed to the host |
+| Facilitator | Person | Hosts the board: runs the service on their own node, opens `/boards` in a browser on port 4000, and runs the phases and the timer. Their node is the authority for the boards it hosts |
+| Participants | Person | The business people at the wall. Each finds the board over the mesh, gets a snapshot, then live updates, and draws on it; the writes are relayed to the host |
+| Builder | Person | Turns on the builder view to read the wall for the code it asks for: the Divisions, their lanes, and the folder each note belongs in |
+| Expert agent | Planned, package 5 | A participant in a row of its own, named for what it is. Its notes count apart, also with business people in the room |
 | macula-realm | Macula infrastructure | Endorses the node's identity key and grants a provider authorization per org procedure, `mcl-whiteboard/info` and `mcl-whiteboard/get_limits` included. The procedures are open to callers, but an advertisement still needs that grant: without it `/health` reads degraded |
 | Macula stations, mesh DHT | Macula infrastructure | The pinned seeds in `MACULA_STATION_SEEDS` carry every fact, write relay and query over QUIC; the DHT keeps a record per org procedure |
 | Another host's node | External system | Another box running this service, and the authority for its boards. Both queries reach every host: the list query is answered by every host that has boards, and the snapshot query only by that board's host |
+| The Division's repository | Planned, package 4 | Receives the agreed wall as `wall.json`, in #14's schema. Its pipeline runs the `wall-tree` check |
+| GitHub issues | Planned, packages 3 and 6 | Package 3 files each big-picture hot spot as an issue and each opportunity as a `proposal` issue. Package 6 files a note with no folder as an issue |
+| mcl-kanban | Planned, package 6 | Takes a card for each note that has no folder yet, with no change to mcl-kanban |
 
-Nothing outside the mesh is called: the board list and the snapshots come from
-other hosts over pubsub.
+Nothing outside the mesh is called today: the board list and the snapshots come
+from other hosts over pubsub.
 
-## Level 2: containers and components
+## Level 2: containers
+
+![mcl-whiteboard containers](../assets/c4-container.svg)
+
+| Container | Technology | Responsibility |
+| --- | --- | --- |
+| Browser | HTML5 Canvas and the LiveView client | Draws the board with no npm dependencies and talks to the release over the LiveView socket. It keeps nothing: a reload asks the release for the board again |
+| mcl-whiteboard release | one OTP release, six apps, in one container image | Runs as `app` on host networking. The web UI is on `MCL_HTTP_PORT` (4000), on loopback unless `MCL_HTTP_IP` says otherwise; `/health` is the Unix socket `/run/mcl/health.sock`. It event sources each board, projects the read models into ETS, and reaches the mesh through `mcl_om` and macula |
+| Board store | reckon-db, on the volume `/var/lib/mcl-whiteboard` | Every board's events. The read models are not kept here: the projections rebuild them into ETS from this store at start |
+| Identity key | a file, on the volume `/etc/mcl/secrets` | `identity.key`, the node's key, read at boot from `MCL_IDENTITY_KEY_PATH`. The realm's delegation is bound to it |
+
+Outside the boundary are the realm, the stations and another host's node, as in
+the Context, and the planned systems. The `wall-tree` check is built (#14): it
+is the reusable check in macula-io/macula-ci-images, and it runs in the
+Division's pipeline, not here.
+
+## Level 3: components
 
 ![mcl-whiteboard components](../assets/c4-components.svg)
 
@@ -52,9 +78,39 @@ A start-up ordering test holds that order, and a test fails any event handler th
 declares no replay policy: the mesh emitters skip a restart's replay, the
 projections deliver it because that is how they are rebuilt.
 
+The dashed boxes below the built ones are the components the storming plan
+adds. Each names the package that builds it, and when that package lands the box
+becomes a built one in the same commit.
+
+## Planned boxes
+
+Every dashed box, the diagram it is in, and the package that builds it.
+`architecture/test_c4_planned_boxes.py` reads this table: it fails, naming the
+box, when a listed box is drawn as anything but planned, and when a planned box
+is drawn that this table does not list.
+
+| Box | Diagram | Package |
+| --- | --- | --- |
+| Expert agent | c4-context.svg | 5 |
+| The Division's repository | c4-context.svg | 4 |
+| GitHub issues | c4-context.svg | 3 and 6 |
+| mcl-kanban | c4-context.svg | 6 |
+| The Division's repository | c4-container.svg | 4 |
+| GitHub issues | c4-container.svg | 3 and 6 |
+| mcl-kanban | c4-container.svg | 6 |
+| Authorship and grants | c4-components.svg | 2 |
+| Wall model | c4-components.svg | 3 |
+| The opening | c4-components.svg | 3 |
+| Division frames, lane form | c4-components.svg | 4 |
+| Wall-file writer | c4-components.svg | 4 |
+| Agents' rows | c4-components.svg | 5 |
+| Kanban hand-off | c4-components.svg | 6 |
+
+Out of scope for every package: pricing, and any change to mcl-kanban.
+
 ## Drawing them
 
-`assets/c4-context.svg` and `assets/c4-components.svg` are generated by
+`assets/c4-context.svg`, `assets/c4-container.svg` and `assets/c4-components.svg` are generated by
 `architecture/c4_diagrams.py` (`python3 architecture/c4_diagrams.py`), from the
 code and never from this page: the callbacks and `subscriptions/0` in
 `apps/mcl_whiteboard/lib/mcl_whiteboard/service.ex`, the desks of each department,
@@ -68,8 +124,18 @@ Two rules for the files themselves, so they render everywhere they are read
 classes plus a `prefers-color-scheme` dark block, never CSS custom properties,
 which `rsvg-convert` renders black.
 
-The check that keeps them here is the `c4-model` job in
-`.github/workflows/c4-model.yml`. It is red until both files exist and are shown, and it
-stays red if either one goes missing.
+The checks that keep them here are in `.github/workflows/c4-model.yml`, which
+runs on every pull request and every push to main, with no path filter:
+
+- `c4-model`, the shared gate: red until the Context, Container and Component
+  diagrams exist and are shown, and red if one goes missing.
+- `c4-drift`: runs the generator and fails, naming the files, when a committed
+  SVG differs from what it draws today. A change to the diagram and to the
+  generator goes in the same commit. It then runs
+  `architecture/test_c4_planned_boxes.py`.
+
+`.github/workflows/c4-design-gate.yml` answers the owner's `gate:design` label on
+a plan issue: it fails a check, by name, while the Context or the Container
+diagram is missing.
 
 **Where the station list comes from.** It is not in `config/runtime.exs`: `mcl_om` reads `MACULA_STATION_SEEDS` and `MACULA_STATION_NODE_IDS` from the environment at boot, paired index for index, so this repository pins no station and the list may be any length.

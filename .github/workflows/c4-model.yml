@@ -28,4 +28,35 @@ jobs:
   c4-model:
     permissions:
       contents: read
-    uses: macula-io/macula-ci-images/.github/workflows/c4-model.yml@c91235da28889b965cf39e607b28e785862e7552
+    uses: macula-io/macula-ci-images/.github/workflows/c4-model.yml@399162a9d3dcac07b904ed12f203f42165c577e8
+
+  # The committed SVGs are what architecture/c4_diagrams.py draws today, and every
+  # box the plan has not built yet is drawn as planned (architecture/README.md,
+  # "Planned boxes"). Its own job here, not in ci.yml: ci.yml ignores assets/**,
+  # so a pull request that changes only an SVG would never run it, and ci.yml's
+  # test image has no python3. ubuntu-latest has python3.
+  c4-drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # actions/checkout v4, the major ci.yml uses, pinned by full commit sha.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: The diagrams match their generator
+        run: |
+          # Every C4 SVG is removed first, so one the generator no longer draws shows as deleted.
+          rm -f assets/c4-*.svg
+          python3 architecture/c4_diagrams.py
+          drift="$(git status --porcelain -- assets/)"
+          if [ -n "$drift" ]; then
+            git --no-pager diff --stat -- assets/
+            echo "c4-drift: assets/ differs from what architecture/c4_diagrams.py draws:"
+            echo "$drift"
+            echo "Run python3 architecture/c4_diagrams.py and commit the SVGs with the generator."
+            exit 1
+          fi
+          echo "c4-drift: every SVG in assets/ is what the generator draws"
+      - name: Every planned box is drawn as planned
+        run: python3 architecture/test_c4_planned_boxes.py

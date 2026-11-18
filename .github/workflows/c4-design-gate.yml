@@ -1,0 +1,17 @@
+# The Design gate: when the owner applies gate:design to a plan issue, this fails
+# a check, by name, while the C4 Context or Container diagram is missing
+# (macula-io/macula-ci-images, c4-design-gate.yml). It never takes the label away.
+# Any other label skips the job.
+#
+# The shared workflow is pinned by full commit sha, as every shared call is.
+
+name: c4 design gate
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  c4-design-gate:
+    permissions: { contents: read, issues: write }
+    uses: macula-io/macula-ci-images/.github/workflows/c4-design-gate.yml@c18e26b87f4671acd94e855c80668a85799adf5b

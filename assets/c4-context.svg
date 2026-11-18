@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 780" role="img" aria-label="mcl-whiteboard system context">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1010" role="img" aria-label="mcl-whiteboard system context">
 <title>mcl-whiteboard system context</title>
 <style>
 .t-name { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; }
@@ -16,7 +16,8 @@
 .b-mac { fill: #E6E4EE; stroke: #5E5A78; stroke-width: 1.25; }
 .b-ext { fill: #ECEFED; stroke: #8A9791; stroke-width: 1.25; }
 .b-cmp { fill: #FFFFFF; stroke: #8A9791; stroke-width: 1.25; }
-.b-later { fill: none; stroke: #8A9791; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.b-plan { fill: #F7F8F7; stroke: #8A9791; stroke-width: 1.25; }
+.b-plan { stroke-dasharray: 6 4; }
 .bound { fill: none; stroke: #B3BDB8; stroke-width: 1; }
 .head { fill: #3B5B7A; }
 .t-name, .t-code { fill: #16201D; }
@@ -32,7 +33,7 @@
 .b-mac { fill: #26243A; stroke: #A9A4C8; }
 .b-ext { fill: #1C2421; stroke: #7D8B85; }
 .b-cmp { fill: #171F1C; stroke: #7D8B85; }
-.b-later { stroke: #7D8B85; }
+.b-plan { fill: #1A221F; stroke: #7D8B85; }
 .bound { stroke: #4A5752; }
 .head { fill: #8EB4D8; }
 .t-name, .t-code { fill: #E6ECE9; }
@@ -44,75 +45,146 @@
 }
 </style>
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
-<rect class="bg" x="0" y="0" width="1100" height="780"/>
+<rect class="bg" x="0" y="0" width="1400" height="1010"/>
+<g data-box="Facilitator">
 <rect class="b-per" x="40" y="30" width="300" height="136" rx="10"/>
 <circle class="head" cx="66" cy="54" r="9"/>
-<text class="t-name" x="84" y="58">Board host</text>
+<text class="t-name" x="84" y="58">Facilitator</text>
 <text class="t-type" x="84" y="76">[Person]</text>
-<text class="t-desc" x="56" y="100">Runs this service on their own node</text>
-<text class="t-desc" x="56" y="116">and opens /boards in a browser</text>
-<text class="t-desc" x="56" y="132">on port 4000. Their node is the</text>
-<text class="t-desc" x="56" y="148">authority for the boards it hosts.</text>
-<rect class="b-per" x="740" y="30" width="300" height="136" rx="10"/>
-<circle class="head" cx="766" cy="54" r="9"/>
-<text class="t-name" x="784" y="58">Collaborator</text>
-<text class="t-type" x="784" y="76">[Person]</text>
-<text class="t-desc" x="756" y="100">Finds a board over the mesh, gets</text>
-<text class="t-desc" x="756" y="116">a snapshot, then live updates, and</text>
-<text class="t-desc" x="756" y="132">draws on it: the writes are relayed</text>
-<text class="t-desc" x="756" y="148">to the host.</text>
-<rect class="b-sys" x="390" y="230" width="320" height="152" rx="10"/>
-<text class="t-name" x="406" y="258">mcl-whiteboard</text>
-<text class="t-type" x="406" y="276">[mcl_om mesh service]</text>
-<text class="t-desc" x="406" y="300">Hosts boards and serves the canvas</text>
-<text class="t-desc" x="406" y="316">on 4000, publishes every board and</text>
-<text class="t-desc" x="406" y="332">shape fact, and relays a remote</text>
-<text class="t-desc" x="406" y="348">peer's writes to the board's host.</text>
-<text class="t-desc" x="406" y="364">One release, six OTP apps.</text>
-<rect class="b-mac" x="40" y="470" width="300" height="152" rx="10"/>
-<text class="t-name" x="56" y="498">macula-realm</text>
-<text class="t-type" x="56" y="516">[Macula infrastructure]</text>
-<text class="t-desc" x="56" y="540">Endorses the node's identity key and</text>
-<text class="t-desc" x="56" y="556">grants a provider authorization for</text>
-<text class="t-desc" x="56" y="572">each org procedure it advertises,</text>
-<text class="t-desc" x="56" y="588">info and get_limits included.</text>
-<rect class="b-mac" x="390" y="470" width="320" height="136" rx="10"/>
-<text class="t-name" x="406" y="498">Macula stations, mesh DHT</text>
-<text class="t-type" x="406" y="516">[Macula infrastructure]</text>
-<text class="t-desc" x="406" y="540">The pinned seeds in</text>
-<text class="t-desc" x="406" y="556">MACULA_STATION_SEEDS carry every fact,</text>
-<text class="t-desc" x="406" y="572">write relay and query (QUIC); the</text>
-<text class="t-desc" x="406" y="588">DHT keeps a record per org procedure.</text>
-<rect class="b-ext" x="740" y="470" width="300" height="152" rx="10"/>
-<text class="t-name" x="756" y="498">Another host's node</text>
-<text class="t-type" x="756" y="516">[External system]</text>
-<text class="t-desc" x="756" y="540">Another box running this service,</text>
-<text class="t-desc" x="756" y="556">and the authority for its boards.</text>
-<text class="t-desc" x="756" y="572">The list query is answered by every</text>
-<text class="t-desc" x="756" y="588">host with boards; the snapshot query</text>
-<text class="t-desc" x="756" y="604">only by that board's host.</text>
-<path class="edge" d="M190 166V200H430V230" marker-end="url(#a)"/>
-<text class="t-rel" x="198" y="180">opens the canvas on port 4000</text>
-<path class="edge" d="M950 166V200H670V230" marker-end="url(#a)"/>
-<text class="t-rel" x="940" y="192" text-anchor="end">joins a board, local or remote</text>
-<path class="edge" d="M470 382V420H190V470" marker-end="url(#a)"/>
-<text class="t-rel" x="300" y="412" text-anchor="middle">boot claim, scope mcl-whiteboard</text>
-<path class="edge" d="M550 382V470" marker-end="url(#a)"/>
-<text class="t-rel" x="558" y="404">board and shape facts,</text>
-<text class="t-rel" x="558" y="420">write relays and queries</text>
-<path class="edge" d="M710 300H890V470" marker-end="url(#a)"/>
-<text class="t-rel" x="718" y="292">queries reach every host</text>
-<text class="t-desc" x="40" y="640">Nothing outside the mesh is called: the board list and the snapshots come from other hosts over pubsub.</text>
-<text class="t-desc" x="40" y="658">The service serves no procedure of its own, and capabilities/0 is empty. mcl_om adds the open</text>
-<text class="t-desc" x="40" y="676">pair every service carries: mcl-whiteboard/info and mcl-whiteboard/get_limits.</text>
-<rect class="b-sys" x="24" y="716" width="22" height="14" rx="3"/>
-<text class="t-leg" x="54" y="728">In scope</text>
-<rect class="b-per" x="110.8" y="716" width="22" height="14" rx="3"/>
-<text class="t-leg" x="140.8" y="728">Person</text>
-<rect class="b-mac" x="184.39999999999998" y="716" width="22" height="14" rx="3"/>
-<text class="t-leg" x="214.39999999999998" y="728">Macula infrastructure</text>
-<rect class="b-ext" x="357.0" y="716" width="22" height="14" rx="3"/>
-<text class="t-leg" x="387.0" y="728">External system</text>
-<rect class="b-cmp" x="490.0" y="716" width="22" height="14" rx="3"/>
-<text class="t-leg" x="520.0" y="728">Container or component</text>
+<text class="t-desc" x="56" y="100">Hosts the board: runs this service on</text>
+<text class="t-desc" x="56" y="116">their own node, opens /boards on port</text>
+<text class="t-desc" x="56" y="132">4000, and runs the phases and the</text>
+<text class="t-desc" x="56" y="148">timer. Their node is the authority.</text>
+</g>
+<g data-box="Participants">
+<rect class="b-per" x="380" y="30" width="300" height="136" rx="10"/>
+<circle class="head" cx="406" cy="54" r="9"/>
+<text class="t-name" x="424" y="58">Participants</text>
+<text class="t-type" x="424" y="76">[Person]</text>
+<text class="t-desc" x="396" y="100">The business people at the wall. Each</text>
+<text class="t-desc" x="396" y="116">finds the board over the mesh, gets a</text>
+<text class="t-desc" x="396" y="132">snapshot, then live updates, and</text>
+<text class="t-desc" x="396" y="148">draws; writes are relayed to the host.</text>
+</g>
+<g data-box="Builder">
+<rect class="b-per" x="720" y="30" width="300" height="136" rx="10"/>
+<circle class="head" cx="746" cy="54" r="9"/>
+<text class="t-name" x="764" y="58">Builder</text>
+<text class="t-type" x="764" y="76">[Person]</text>
+<text class="t-desc" x="736" y="100">Turns on the builder view to read</text>
+<text class="t-desc" x="736" y="116">the wall for the code it asks for:</text>
+<text class="t-desc" x="736" y="132">the Divisions, their lanes and the</text>
+<text class="t-desc" x="736" y="148">folder each note belongs in.</text>
+</g>
+<g data-box="Expert agent">
+<rect class="b-plan" x="1060" y="30" width="300" height="136" rx="10"/>
+<circle class="head" cx="1086" cy="54" r="9"/>
+<text class="t-name" x="1104" y="58">Expert agent</text>
+<text class="t-type" x="1104" y="76">[Planned: package 5]</text>
+<text class="t-desc" x="1076" y="100">A participant in a row of its own,</text>
+<text class="t-desc" x="1076" y="116">named for what it is. Its notes count</text>
+<text class="t-desc" x="1076" y="132">apart, also with business people in</text>
+<text class="t-desc" x="1076" y="148">the room.</text>
+</g>
+<g data-box="mcl-whiteboard">
+<rect class="b-sys" x="540" y="240" width="320" height="152" rx="10"/>
+<text class="t-name" x="556" y="268">mcl-whiteboard</text>
+<text class="t-type" x="556" y="286">[mcl_om mesh service]</text>
+<text class="t-desc" x="556" y="310">Hosts boards and serves the canvas</text>
+<text class="t-desc" x="556" y="326">on 4000, publishes every board and</text>
+<text class="t-desc" x="556" y="342">shape fact, and relays a remote</text>
+<text class="t-desc" x="556" y="358">peer's writes to the board's host.</text>
+<text class="t-desc" x="556" y="374">One release, six OTP apps.</text>
+</g>
+<g data-box="macula-realm">
+<rect class="b-mac" x="40" y="480" width="300" height="152" rx="10"/>
+<text class="t-name" x="56" y="508">macula-realm</text>
+<text class="t-type" x="56" y="526">[Macula infrastructure]</text>
+<text class="t-desc" x="56" y="550">Endorses the node's identity key and</text>
+<text class="t-desc" x="56" y="566">grants a provider authorization for</text>
+<text class="t-desc" x="56" y="582">each org procedure it advertises,</text>
+<text class="t-desc" x="56" y="598">info and get_limits included.</text>
+</g>
+<g data-box="Macula stations, mesh DHT">
+<rect class="b-mac" x="540" y="480" width="320" height="136" rx="10"/>
+<text class="t-name" x="556" y="508">Macula stations, mesh DHT</text>
+<text class="t-type" x="556" y="526">[Macula infrastructure]</text>
+<text class="t-desc" x="556" y="550">The pinned seeds in</text>
+<text class="t-desc" x="556" y="566">MACULA_STATION_SEEDS carry every fact,</text>
+<text class="t-desc" x="556" y="582">write relay and query (QUIC); the</text>
+<text class="t-desc" x="556" y="598">DHT keeps a record per org procedure.</text>
+</g>
+<g data-box="Another host's node">
+<rect class="b-ext" x="1060" y="480" width="300" height="152" rx="10"/>
+<text class="t-name" x="1076" y="508">Another host's node</text>
+<text class="t-type" x="1076" y="526">[External system]</text>
+<text class="t-desc" x="1076" y="550">Another box running this service,</text>
+<text class="t-desc" x="1076" y="566">and the authority for its boards.</text>
+<text class="t-desc" x="1076" y="582">The list query is answered by every</text>
+<text class="t-desc" x="1076" y="598">host with boards; the snapshot query</text>
+<text class="t-desc" x="1076" y="614">only by that board's host.</text>
+</g>
+<g data-box="The Division's repository">
+<rect class="b-plan" x="40" y="720" width="300" height="136" rx="10"/>
+<text class="t-name" x="56" y="748">The Division's repository</text>
+<text class="t-type" x="56" y="766">[Planned: package 4]</text>
+<text class="t-desc" x="56" y="790">Receives the agreed wall as</text>
+<text class="t-desc" x="56" y="806">wall.json. Its pipeline runs the</text>
+<text class="t-desc" x="56" y="822">wall-tree check (built in #14), which</text>
+<text class="t-desc" x="56" y="838">holds the code tree to the wall.</text>
+</g>
+<g data-box="GitHub issues">
+<rect class="b-plan" x="540" y="720" width="320" height="136" rx="10"/>
+<text class="t-name" x="556" y="748">GitHub issues</text>
+<text class="t-type" x="556" y="766">[Planned: packages 3 and 6]</text>
+<text class="t-desc" x="556" y="790">Package 3 files each big-picture hot</text>
+<text class="t-desc" x="556" y="806">spot as an issue and each opportunity</text>
+<text class="t-desc" x="556" y="822">as a proposal issue. Package 6 files</text>
+<text class="t-desc" x="556" y="838">a note with no folder as an issue.</text>
+</g>
+<g data-box="mcl-kanban">
+<rect class="b-plan" x="1060" y="720" width="300" height="136" rx="10"/>
+<text class="t-name" x="1076" y="748">mcl-kanban</text>
+<text class="t-type" x="1076" y="766">[Planned: package 6]</text>
+<text class="t-desc" x="1076" y="790">Takes a card for each note that has</text>
+<text class="t-desc" x="1076" y="806">no folder yet, with no change to</text>
+<text class="t-desc" x="1076" y="822">mcl-kanban. The note links to its</text>
+<text class="t-desc" x="1076" y="838">issue and card until its folder exists.</text>
+</g>
+<path class="edge" d="M190 166V210H580V240" marker-end="url(#a)"/>
+<text class="t-rel" x="198" y="194">hosts the board, runs the phases</text>
+<path class="edge" d="M530 166V200H640V240" marker-end="url(#a)"/>
+<text class="t-rel" x="538" y="186">joins and draws</text>
+<path class="edge" d="M870 166V200H760V240" marker-end="url(#a)"/>
+<text class="t-rel" x="862" y="186" text-anchor="end">reads the wall</text>
+<path class="edge-later" d="M1210 166V210H820V240" marker-end="url(#a)"/>
+<text class="t-rel" x="1202" y="194" text-anchor="end">joins its own row</text>
+<path class="edge" d="M580 392V440H190V480" marker-end="url(#a)"/>
+<text class="t-rel" x="198" y="432">boot claim, scope mcl-whiteboard</text>
+<path class="edge" d="M700 392V480" marker-end="url(#a)"/>
+<text class="t-rel" x="708" y="414">board and shape facts,</text>
+<text class="t-rel" x="708" y="430">write relays and queries</text>
+<path class="edge" d="M860 310H1210V480" marker-end="url(#a)"/>
+<text class="t-rel" x="868" y="302">queries reach every host</text>
+<path class="edge-later" d="M540 340H420V680H190V720" marker-end="url(#a)"/>
+<text class="t-rel" x="300" y="672" text-anchor="middle">writes the agreed wall.json</text>
+<path class="edge-later" d="M540 372H460V690H640V720" marker-end="url(#a)"/>
+<text class="t-rel" x="648" y="712">files issues</text>
+<path class="edge-later" d="M860 372H960V680H1210V720" marker-end="url(#a)"/>
+<text class="t-rel" x="1085" y="672" text-anchor="middle">hands notes over as cards</text>
+<text class="t-desc" x="40" y="882">Nothing outside the mesh is called today: the board list and the snapshots come from other hosts over pubsub. The service serves</text>
+<text class="t-desc" x="40" y="900">no procedure of its own, and capabilities/0 is empty. mcl_om adds the open pair every service carries: mcl-whiteboard/info and</text>
+<text class="t-desc" x="40" y="918">mcl-whiteboard/get_limits. Dashed boxes and arrows are planned (macula-services/mcl-whiteboard#13), each named for its package.</text>
+<rect class="b-sys" x="24" y="956" width="22" height="14" rx="3"/>
+<text class="t-leg" x="54" y="968">In scope</text>
+<rect class="b-per" x="110.8" y="956" width="22" height="14" rx="3"/>
+<text class="t-leg" x="140.8" y="968">Person</text>
+<rect class="b-mac" x="184.39999999999998" y="956" width="22" height="14" rx="3"/>
+<text class="t-leg" x="214.39999999999998" y="968">Macula infrastructure</text>
+<rect class="b-ext" x="357.0" y="956" width="22" height="14" rx="3"/>
+<text class="t-leg" x="387.0" y="968">External system</text>
+<rect class="b-cmp" x="490.0" y="956" width="22" height="14" rx="3"/>
+<text class="t-leg" x="520.0" y="968">Container or component</text>
+<rect class="b-plan" x="669.2" y="956" width="22" height="14" rx="3"/>
+<text class="t-leg" x="699.2" y="968">Planned (the package that builds it)</text>
 </svg>
